@@ -1,5 +1,6 @@
 #include "cl_helper.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 const char* cl_err_code(cl_int err_in)
 {

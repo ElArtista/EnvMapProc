@@ -107,10 +107,10 @@ void irradiance_filter_fast(int width, int height, int channels, unsigned char* 
     cl_check_error(err, "Creating Command Queue");
 
     /* Fill 2 random vectors with data */
-    const size_t vsz = 100;
+    const int vsz = 100;
     int* hv1 = malloc(sizeof(int) * vsz);
     int* hv2 = malloc(sizeof(int) * vsz);
-    for (size_t i = 0; i < vsz; ++i) {
+    for (int i = 0; i < vsz; ++i) {
         hv1[i] = rand() / RAND_MAX;
         hv2[i] = rand() / RAND_MAX;
     }
@@ -142,14 +142,14 @@ void irradiance_filter_fast(int width, int height, int channels, unsigned char* 
 
     /* Test results */
     int correct = 0;
-    for (size_t i = 0; i < vsz; ++i) {
+    for (int i = 0; i < vsz; ++i) {
         int tmp = hv1[i] + hv2[i];
         if (tmp == hres[i])
             ++correct;
     }
 
     /* Results */
-    printf("C = A + B: %d out of %zd results were correct.\n", correct, vsz);
+    printf("C = A + B: %d out of %d results were correct.\n", correct, vsz);
 
     /* Free device resources */
     clReleaseMemObject(dres);
