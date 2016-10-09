@@ -147,7 +147,11 @@ static int filter_thrd(void* arg)
 {
     struct context* ctx = (struct context*) arg;
     ctx->processing = 1;
+#ifdef USE_FAST_FILTER
+    irradiance_filter_fast(ctx->out->width, ctx->out->height, ctx->out->channels, ctx->in->data, ctx->out->data);
+#else
     irradiance_filter(ctx->out->width, ctx->out->height, ctx->out->channels, ctx->in->data, ctx->out->data);
+#endif
     ctx->processing = 0;
     return 0;
 }

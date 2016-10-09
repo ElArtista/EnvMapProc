@@ -1,5 +1,5 @@
 PRJTYPE = Executable
-LIBS = envmapproc assetloader macu freetype png jpeg tiff zlib glfw glad
+LIBS = envmapproc assetloader macu freetype png jpeg tiff zlib glfw glad OpenCL
 ifeq ($(OS), Windows_NT)
 	LIBS += glu32 opengl32 gdi32 winmm ole32 shell32 user32
 else
