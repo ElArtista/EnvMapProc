@@ -23,8 +23,8 @@
 #   - lib [6]
 #   - tmp [7]
 # Where:
-#  [5] contains binary results of the linking process (executables, dynamic libraries)
-#  [6] contains archive results of the archiving process (static libraries)
+#  [5] contains executable results
+#  [6] contains library results (static or shared)
 #  [7] contains intermediate object files of compiling processes
 
 # CreateProcess NULL bug
@@ -41,8 +41,11 @@ export MKLOC
 #---------------------------------------------------------------
 # Variant = (Debug|Release)
 VARIANT ?= Debug
-SILENT ?=
 TOOLCHAIN ?= GCC
+SILENT ?=
+VERBOSE ?=
+# Default target OS is host if not provided
+TARGET_OS ?= $(OS)
 
 #---------------------------------------------------------------
 # Helpers
@@ -50,11 +53,18 @@ TOOLCHAIN ?= GCC
 # Recursive wildcard func
 rwildcard = $(foreach d, $(wildcard $1*), $(call rwildcard, $d/, $2) $(filter $(subst *, %, $2), $d))
 
-# Suppress command errors
+# Suppress full command output
 ifeq ($(OS), Windows_NT)
-	suppress_out = > nul 2>&1 || (exit 0)
+	suppress_out = > nul 2>&1
 else
-	suppress_out = > /dev/null 2>&1 || true
+	suppress_out = > /dev/null 2>&1
+endif
+
+# Ignore command error
+ifeq ($(OS), Windows_NT)
+	ignore_err = || (exit 0)
+else
+	ignore_err = || true
 endif
 
 # Native paths
@@ -70,7 +80,7 @@ ifeq ($(OS), Windows_NT)
 else
 	MKDIR_CMD = mkdir -p
 endif
-mkdir = -$(if $(wildcard $(1)/.*), , $(MKDIR_CMD) $(call native_path, $(1)) $(suppress_out))
+mkdir = -$(if $(wildcard $(1)/.*), , $(MKDIR_CMD) $(call native_path, $(1)) $(suppress_out)$(ignore_err))
 
 # Rmdir command
 ifeq ($(OS), Windows_NT)
@@ -79,6 +89,9 @@ else
 	RMDIR_CMD = rm -rf
 endif
 rmdir = $(if $(wildcard $(1)/.*), $(RMDIR_CMD) $(call native_path, $(1)),)
+
+# Path separator
+pathsep = $(strip $(if $(filter $(OS), Windows_NT), ;, :))
 
 # Lowercase
 lc = $(subst A,a,$(subst B,b,$(subst C,c,$(subst D,d,$(subst E,e,$(subst F,f,$(subst G,g,\
@@ -89,11 +102,20 @@ lc = $(subst A,a,$(subst B,b,$(subst C,c,$(subst D,d,$(subst E,e,$(subst F,f,$(s
 # Quiet execution of command
 quiet = $(if $(SILENT), $(suppress_out),)
 
+# Command shown when executed
+showcmd = $(if $(VERBOSE),,@)
+
 # Newline macro
 define \n
 
 
 endef
+
+# Space variable
+space := $(subst ,, )
+
+# Comma variable
+comma := ,
 
 # Canonical path (1 = base, 2 = path)
 canonical_path = $(filter-out $(1), $(patsubst $(strip $(1))/%,%,$(abspath $(2))))
@@ -113,10 +135,16 @@ searchlibrary = $(foreach sd, $2, $(call findfile, $(sd), $1))
 # Global constants
 #---------------------------------------------------------------
 # Os executable extension
-ifeq ($(OS), Windows_NT)
+ifeq ($(TARGET_OS), Windows_NT)
 	EXECEXT = .exe
 else
 	EXECEXT = .out
+endif
+# Os dynamic library extension
+ifeq ($(TARGET_OS), Windows_NT)
+	DLEXT = .dll
+else
+	DLEXT = .so
 endif
 # Object file extension
 OBJEXT = .o
@@ -156,92 +184,96 @@ endif
 # Colors
 #---------------------------------------------------------------
 ifneq ($(OS), Windows_NT)
-	ESC = $(shell echo -e -n '\x1b')
+	ESC := $(shell echo -e -n '\x1b')
 endif
-NO_COLOR=$(ESC)[0m
-LGREEN_COLOR=$(ESC)[92m
-LYELLOW_COLOR=$(ESC)[93m
-LMAGENTA_COLOR=$(ESC)[95m
-LRED_COLOR=$(ESC)[91m
-DGREEN_COLOR=$(ESC)[32m
-DYELLOW_COLOR=$(ESC)[33m
-DCYAN_COLOR=$(ESC)[36m
+NO_COLOR       := $(ESC)[0m
+LGREEN_COLOR   := $(ESC)[92m
+LYELLOW_COLOR  := $(ESC)[93m
+LMAGENTA_COLOR := $(ESC)[95m
+LRED_COLOR     := $(ESC)[91m
+DGREEN_COLOR   := $(ESC)[32m
+DYELLOW_COLOR  := $(ESC)[33m
+DCYAN_COLOR    := $(ESC)[36m
 
 #---------------------------------------------------------------
 # Toolchain dependent values
 #---------------------------------------------------------------
 ifeq ($(TOOLCHAIN), MSVC)
 	# Compiler
-	CC = cl
-	CXX = cl
-	CFLAGS = /nologo /EHsc /W4 /c
-	CXXFLAGS =
-	COUTFLAG = /Fo:
+	CC          := cl
+	CXX         := cl
+	CFLAGS      := /nologo /EHsc /W4 /c
+	CXXFLAGS    :=
+	COUTFLAG    := /Fo:
 	# Preprocessor
-	INCFLAG = /I
-	DEFINEFLAG = /D
+	INCFLAG     := /I
+	DEFINEFLAG  := /D
 	# Archiver
-	AR = lib
-	ARFLAGS = /nologo
-	SLIBEXT = .lib
-	SLIBPREF =
-	AROUTFLAG = /OUT:
+	AR          := lib
+	ARFLAGS     := /nologo
+	SLIBEXT     := .lib
+	SLIBPREF    :=
+	AROUTFLAG   := /OUT:
 	# Linker
-	LD = link
-	LDFLAGS = /nologo /manifest /entry:mainCRTStartup
-	LIBFLAG =
-	LIBSDIRFLAG = /LIBPATH:
-	LOUTFLAG = /OUT:
+	LD          := link
+	LDFLAGS     := /nologo /manifest
+	LIBFLAG     :=
+	LIBSDIRFLAG := /LIBPATH:
+	LOUTFLAG    := /OUT:
+	LSOFLAGS    := /DLL
 	# Variant specific flags
 	ifeq ($(VARIANT), Debug)
-		CFLAGS += /MTd /Zi /Od /FS /Fd:$(BUILDDIR)/$(TARGETNAME).pdb
+		CFLAGS  += /MTd /Zi /Od /FS /Fd:$(BUILDDIR)/$(TARGETNAME).pdb
 		LDFLAGS += /debug
 	else
-		CFLAGS += /MT /O2
+		CFLAGS  += /MT /O2
 		LDFLAGS += /incremental:NO
 	endif
 else
 	# Compiler
-	CC = gcc
-	CXX = g++
-	CFLAGS = -Wall -Wextra -c
-	CXXFLAGS = -std=c++14
-	COUTFLAG = -o
+	CC          := gcc
+	CXX         := g++
+	CFLAGS      := -Wall -Wextra -c
+	CXXFLAGS    := -std=c++14
+	COUTFLAG    := -o
+	CSOFLAGS    := -fPIC
 	# Preprocessor
-	INCFLAG = -I
-	DEFINEFLAG = -D
+	INCFLAG     := -I
+	DEFINEFLAG  := -D
 	# Archiver
-	AR = ar
-	ARFLAGS = rcs
-	SLIBEXT = .a
-	SLIBPREF = lib
-	AROUTFLAG =
+	AR          := ar
+	ARFLAGS     := rcs
+	SLIBEXT     := .a
+	SLIBPREF    := lib
+	AROUTFLAG   :=
 	# Linker
-	LD = g++
-	LDFLAGS =
-	ifeq ($(OS), Windows_NT)
-		LDFLAGS += -static -static-libgcc -static-libstdc++
+	LD          := g++
+	LDFLAGS     :=
+	ifeq ($(TARGET_OS), Windows_NT)
+		LDFLAGS += -static-libgcc -static-libstdc++
 	endif
-	LIBFLAG = -l
-	LIBSDIRFLAG = -L
-	LOUTFLAG = -o
+	LIBFLAG     := -l
+	LIBSDIRFLAG := -L
+	LOUTFLAG    := -o
+	LSOFLAGS    := -shared -fPIC
 	# Variant specific flags
 	ifeq ($(VARIANT), Debug)
-		CFLAGS += -g -O0
+		CFLAGS  += -g -O0
 	else
-		CFLAGS += -O2
+		CFLAGS  += -O2
 	endif
 endif
 
-#---------------------------------------------------------------
-# Command generator functions
-#---------------------------------------------------------------
-# 1 = CPPFLAGS, 2 = INCDIR
-ccompile = $(CC) $(CFLAGS) $(1) $(2) $< $(COUTFLAG) $@
-cxxcompile = $(CXX) $(CFLAGS) $(CXXFLAGS) $(1) $(2) $< $(COUTFLAG) $@
-# 1 = LIBSDIR, 2 = LIBFLAGS 3 = $^
-link = $(LD) $(LDFLAGS) $(1) $(LOUTFLAG)$@ $(3) $(2)
-archive = $(AR) $(ARFLAGS) $(AROUTFLAG)$@ $^
+ifdef CROSS_COMPILE
+	CC  := $(CROSS_COMPILE)-$(CC)
+	CXX := $(CROSS_COMPILE)-$(CXX)
+	AR  := $(CROSS_COMPILE)-$(AR)
+	LD  := $(CROSS_COMPILE)-$(LD)
+	CFLAGS   += --sysroot=$(SYSROOT)
+	CXXFLAGS += --sysroot=$(SYSROOT)
+	CPPFLAGS += --sysroot=$(SYSROOT)
+	LDFLAGS  += --sysroot=$(SYSROOT)
+endif
 
 #---------------------------------------------------------------
 # Rule generators
@@ -251,7 +283,7 @@ define compile-rule
 $(BUILDDIR)/$(VARIANT)/$(strip $(3))%.$(strip $(1))$(OBJEXT): $(strip $(3))%.$(strip $(1))
 	@$$(info $(LGREEN_COLOR)[>] Compiling$(NO_COLOR) $(LYELLOW_COLOR)$$<$(NO_COLOR))
 	@$$(call mkdir, $$(@D))
-	@$$(call dep-gen-wrapper, $(2), $(SILENT)) $(quiet)
+	$(showcmd)$$(call dep-gen-wrapper, $(2), $(SILENT)) $(quiet)
 endef
 
 #---------------------------------------------------------------
@@ -283,25 +315,26 @@ $(foreach v, PRJTYPE LIBS SRCDIR SRC DEFINES ADDINCS MOREDEPS, undefine $(v)${\n
 -include $(DP)config.mk
 
 # Gather variables from config
-PRJTYPE_$(D) := $$(PRJTYPE)
-SRCDIR_$(D) := $$(foreach d, $$(SRCDIR), $(DP)$$(d))
-SRC_$(D) := $$(foreach s, $$(SRC), $(DP)$$(s))
-DEFINES_$(D) := $$(DEFINES)
-ADDINCS_$(D) := $$(foreach ai, $$(ADDINCS), $(DP)$$(ai))
-LIBS_$(D) := $$(foreach l, $$(LIBS), $$(l))
-MOREDEPS_$(D) := $$(MOREDEPS)
+PRJTYPE_$(D)   := $$(PRJTYPE)
+SRCDIR_$(D)    := $$(foreach d, $$(SRCDIR), $(DP)$$(d))
+SRC_$(D)       := $$(foreach s, $$(SRC), $(DP)$$(s))
+DEFINES_$(D)   := $$(DEFINES)
+ADDINCS_$(D)   := $$(foreach ai, $$(ADDINCS), $(DP)$$(ai))
+ADDLIBDIR_$(D) := $$(foreach ald, $$(ADDLIBDIR), $(DP)$$(ald))
+LIBS_$(D)      := $$(foreach l, $$(LIBS), $$(l))
+MOREDEPS_$(D)  := $$(MOREDEPS)
 
 # Set defaults on unset variables
 TARGETNAME_$(D) := $$(or $$(TARGETNAME_$(D)), $$(notdir $$(if $$(filter $(D),.), $$(CURDIR), $(D))))
-SRCDIR_$(D) := $$(or $$(SRCDIR_$(D)), $(DP)src)
-SRCEXT_$(D) := *.c *.cpp *.cc *.cxx
-SRC_$(D) := $$(or $$(SRC_$(D)), $$(call rwildcard, $$(SRCDIR_$(D)), $$(SRCEXT_$(D))))
+SRCDIR_$(D)     := $$(or $$(SRCDIR_$(D)), $(DP)src)
+SRCEXT_$(D)     := *.c *.cpp *.cc *.cxx
+SRC_$(D)        := $$(or $$(SRC_$(D)), $$(call rwildcard, $$(SRCDIR_$(D)), $$(SRCEXT_$(D))))
 
 # Target directory
-ifeq ($$(PRJTYPE_$(D)), StaticLib)
-	TARGETDIR_$(D) := $(DP)lib
-else
+ifeq ($$(PRJTYPE_$(D)), Executable)
 	TARGETDIR_$(D) := $(DP)bin
+else
+	TARGETDIR_$(D) := $(DP)lib
 endif
 
 #---------------------------------------------------------------
@@ -315,6 +348,8 @@ HDEPS_$(D) := $$(OBJ_$(D):$(OBJEXT)=$(HDEPEXT))
 # Output
 ifeq ($$(PRJTYPE_$(D)), StaticLib)
 	TARGET_$(D) := $(SLIBPREF)$$(strip $$(call lc,$$(TARGETNAME_$(D))))$(SLIBEXT)
+else ifeq ($$(PRJTYPE_$(D)), DynLib)
+	TARGET_$(D) := $(SLIBPREF)$$(strip $$(call lc,$$(TARGETNAME_$(D))))$(DLEXT)
 else
 	TARGET_$(D) := $$(TARGETNAME_$(D))$(EXECEXT)
 endif
@@ -339,24 +374,48 @@ INCDIR_$(D) := $$(strip $(INCFLAG)$(DP)include \
 						$$(foreach dep, $$(DEPS_$(D)) \
 										$$(filter-out $$(DEPS_$(D)), $$(wildcard $$(DEPSDIR_$(D))/*)), \
 										$(INCFLAG)$$(dep)/include))
+
 # Include directories (explicit)
 INCDIR_$(D) += $$(strip $$(foreach addinc, $$(ADDINCS_$(D)), $(INCFLAG)$$(addinc)))
 
-# Library search directories
-LIBSDIR_$(D) := $$(strip $$(foreach libdir,\
+# Library search paths
+LIBPATHS_$(D) := $$(strip $$(foreach libdir,\
 									$$(foreach dep, $$(DEPS_$(D)), $$(dep)/lib) \
-									$$(foreach ald, $$(ADDLIBDIR), $(DP)$$(ald)),\
-								$(LIBSDIRFLAG)$$(libdir)/$(strip $(VARIANT))))
+									$$(ADDLIBDIR_$(D)),\
+								$$(libdir)/$(strip $(VARIANT))))
+
+# Library path flags
+LIBSDIR_$(D) := $$(strip $$(foreach lp, $$(LIBPATHS_$(D)), $(LIBSDIRFLAG)$$(lp)))
+
 # Library flags
 LIBFLAGS_$(D) := $$(strip $$(foreach lib, $$(LIBS_$(D)), $(LIBFLAG)$$(lib)$(if $(filter $(TOOLCHAIN), MSVC),.lib,)))
+
+# Extra link flags when building shared libraries
+ifeq ($$(PRJTYPE_$(D)), DynLib)
+	# Add shared library toggle
+	MORELFLAGS_$(D) := $(LSOFLAGS)
+endif
+
+# Setup rpath flag parameter for linux systems
+ifeq ($$(PRJTYPE_$(D)), Executable)
+ifneq ($(TARGET_OS), Windows_NT)
+	# Path from executable location to project root
+	RELPPREFIX_$(D) := $$(subst $$(space),,$$(foreach dir, $$(subst /,$$(space),$$(dir $$(MASTEROUT_$(D)))),../))
+	# Library paths relative to the executable
+	LIBRELPATHS_$(D) := $$(strip $$(foreach p, $$(LIBPATHS_$(D)), $$(RELPPREFIX_$(D))$$(p)))
+	# Add rpath param to search for dependent shared libraries relative to the executable location
+	MORELFLAGS_$(D) := '-Wl$$(comma)-rpath$$(comma)$$(subst $$(space),:,$$(addprefix $$$$ORIGIN/, $$(LIBRELPATHS_$(D))))'
+endif
+endif
 
 # Build rule dependencies
 BUILDDEPS_$(D) := $$(foreach dep, $$(DEPS_$(D)), build_$$(strip $$(dep)))
 
 # Link rule dependencies
 ifneq ($$(PRJTYPE_$(D)), StaticLib)
-LIBDEPS_$(D) := $$(foreach dep, $$(DEPS_$(D)), \
-					$$(if $$(filter $$(PRJTYPE_$$(strip $$(dep))), StaticLib), \
+LIBDEPS_$(D) = $$(foreach dep, $$(DEPS_$(D)), \
+					$$(if $$(or $$(filter $$(PRJTYPE_$$(strip $$(dep))), StaticLib), \
+								$$(filter $$(PRJTYPE_$$(strip $$(dep))), DynLib)), \
 						$$(MASTEROUT_$$(strip $$(dep)))))
 endif
 
@@ -364,50 +423,59 @@ endif
 # Rules
 #---------------------------------------------------------------
 # Main build rule
-build_$(D): $$(BUILDDEPS_$(D)) variables_$(D) $$(OBJ_$(D)) $$(MASTEROUT_$(D))
+build_$(D): $$(MASTEROUT_$(D))
 
 # Executes target
 run_$(D): build_$(D)
-	$$(eval exec = $$(MASTEROUT_$(D)))
-	@echo Executing $$(exec) ...
-	@cd $(D) && $$(call native_path, $$(call canonical_path, $$(abspath $$(CURDIR)/$(D)), $$(exec)))
+	@echo Executing $$(MASTEROUT_$(D)) ...
+	@$$(eval export PATH := $(PATH)$(pathsep)$$(subst $$(space),$(pathsep),$$(addprefix $$(CURDIR)/, $$(LIBPATHS_$(D)))))
+	@cd $(D) && $$(call native_path, $$(call canonical_path, $$(abspath $$(CURDIR)/$(D)), $$(MASTEROUT_$(D))))
 
-# Set variables for current build execution
-variables_$(D):
+# Show banner for current build execution
+banner_$(D):
 	$$(info $(LRED_COLOR)[o] Building$(NO_COLOR) $(LMAGENTA_COLOR)$$(TARGETNAME_$(D))$(NO_COLOR))
 
-# Print build debug info
-showvars_$(D): variables_$(D)
-	@echo MASTEROUT: $$(MASTEROUT_$(D))
-	@echo SRCDIR: $$(SRCDIR_$(D))
-	@echo SRC: $$(SRC_$(D))
-	@echo DEPS: $$(DEPS_$(D))
-	@echo BUILDDEPS: $$(BUILDDEPS_$(D))
-	@echo CFLAGS: $$(CFLAGS)
-	@echo CPPFLAGS: $$(CPPFLAGS_$(D))
-	@echo INCDIR: $$(INCDIR_$(D))
-	@echo LIBSDIR: $$(LIBSDIR_$(D))
-	@echo LIBFLAGS: $$(LIBFLAGS_$(D))
-	@echo LIBDEPS: $$(LIBDEPS_$(D))
-	@echo HDEPS: $$(HDEPS_$(D))
+# Build objects for target
+objects_$(D): $$(OBJ_$(D))
 
+# Print build debug info
+showvars_$(D): banner_$(D)
+	@echo MASTEROUT: $$(MASTEROUT_$(D))
+	@echo SRCDIR:    $$(SRCDIR_$(D))
+	@echo SRC:       $$(SRC_$(D))
+	@echo DEPS:      $$(DEPS_$(D))
+	@echo BUILDDEPS: $$(BUILDDEPS_$(D))
+	@echo CFLAGS:    $$(CFLAGS)
+	@echo CPPFLAGS:  $$(CPPFLAGS_$(D))
+	@echo INCDIR:    $$(INCDIR_$(D))
+	@echo LIBSDIR:   $$(LIBSDIR_$(D))
+	@echo LIBFLAGS:  $$(LIBFLAGS_$(D))
+	@echo LIBDEPS:   $$(LIBDEPS_$(D))
+	@echo HDEPS:     $$(HDEPS_$(D))
+
+$$(MASTEROUT_$(D)): $$(BUILDDEPS_$(D)) banner_$(D) objects_$(D)
+ifneq ($$(PRJTYPE_$(D)), StaticLib)
 # Link rule
-$(DP)%$(EXECEXT): $$(LIBDEPS_$(D)) $$(OBJ_$(D))
 	@$$(info $(DGREEN_COLOR)[+] Linking$(NO_COLOR) $(DYELLOW_COLOR)$$@$(NO_COLOR))
 	@$$(call mkdir, $$(@D))
-	$$(eval lcommand = $$(call link, $$(LIBSDIR_$(D)), $$(LIBFLAGS_$(D)), $$(OBJ_$(D))))
-	@$$(lcommand)
-
+	$(showcmd)$(LD) $(LDFLAGS) $$(LIBSDIR_$(D)) $(LOUTFLAG)$$@ $$(OBJ_$(D)) $$(LIBFLAGS_$(D)) $$(MORELFLAGS_$(D))
+else
 # Archive rule
-$(DP)%$(SLIBEXT): $$(OBJ_$(D))
 	@$$(info $(DCYAN_COLOR)[+] Archiving$(NO_COLOR) $(DYELLOW_COLOR)$$@$(NO_COLOR))
 	@$$(call mkdir, $$(@D))
-	$$(eval lcommand = $$(archive))
-	@$$(lcommand)
+	$(showcmd)$(AR) $(ARFLAGS) $(AROUTFLAG)$$@ $$(OBJ_$(D))
+endif
+
+# Compile commands
+CCOMPILE_$(D)   = $(CC) $(CFLAGS) $$(CPPFLAGS_$(D)) $$(INCDIR_$(D)) $$< $(COUTFLAG) $$@ $$(MORECFLAGS_$(D))
+CXXCOMPILE_$(D) = $(CXX) $(CFLAGS) $(CXXFLAGS) $$(CPPFLAGS_$(D)) $$(INCDIR_$(D)) $$< $(COUTFLAG) $$@ $$(MORECFLAGS_$(D))
 
 # Generate compile rules
-$(call compile-rule, c, $$(call ccompile, $$(CPPFLAGS_$(D)), $$(INCDIR_$(D))), $(DP))
-$(foreach ext, cpp cxx cc, $(call compile-rule, $(ext), $$(call cxxcompile, $$(CPPFLAGS_$(D)), $$(INCDIR_$(D))), $(DP))${\n})
+$(call compile-rule, c, $$(CCOMPILE_$(D)), $(DP))
+$(foreach ext, cpp cxx cc, $(call compile-rule, $(ext), $$(CXXCOMPILE_$(D)), $(DP))${\n})
+
+# Include extra rules
+-include $(DP)rules.mk
 
 endef
 
@@ -431,6 +499,12 @@ run: run_.
 showvars: showvars_.
 showvars_all: $(foreach subproj, $(SUBPROJS), showvars_$(subproj))
 
+# Track down Dynamic Library projects and find their dependencies
+SO_PROJS := $(strip $(foreach subproj, $(SUBPROJS), $(if $(filter $(PRJTYPE_$(subproj)), DynLib), $(subproj),)))
+SO_DEPS  := $(strip $(sort $(foreach sop, $(SO_PROJS), $(foreach dep, $(DEPS_$(sop)), $(if $(filter $(PRJTYPE_$(dep)), StaticLib), $(dep),)))))
+# Make these projects have position independent code
+$(foreach pic, $(SO_PROJS) $(SO_DEPS), $(eval MORECFLAGS_$(pic) += $(CSOFLAGS)))
+
 # Cleanup rule
 clean:
 	@echo Cleaning...
@@ -451,11 +525,11 @@ endif
 .SUFFIXES:
 
 # Non file targets
-RULETYPES := build run variables showvars
-.PHONY: $(foreach subproj, $(SUBPROJS), $(foreach ruletype, $(RULETYPES), $(subproj)_$(ruletype))) \
-		build \
+PHONYRULETYPES := run showvars
+PHONYPREREQS := $(foreach ruletype, $(PHONYRULETYPES), $(foreach subproj, $(SUBPROJS), $(ruletype)_$(subproj))) \
 		run \
-		variables \
 		showvars \
 		showvars_all \
 		clean
+.PHONY: $(PHONYPREREQS)
+.SECONDARY:
