@@ -31,7 +31,14 @@
 #ifndef _ENVMAP_H_
 #define _ENVMAP_H_
 
+#ifndef OPENCL_MODE
 #include <stdint.h>
+#define PRIVATE
+#else
+typedef unsigned char uint8_t;
+typedef unsigned int uint32_t;
+#define PRIVATE __private
+#endif
 
 enum envmap_type {
     EM_TYPE_HCROSS,
@@ -72,15 +79,15 @@ enum cubemap_edge
 /* Detect an envmap type from its dimensions */
 enum envmap_type envmap_detect_type(int width, int height);
 /* U and V are in [0.0 .. 1.0] range. */
-void envmap_vec_to_texel_coord(float* u, float* v, uint8_t* face_idx, enum envmap_type em_type, const float* vec);
+void envmap_vec_to_texel_coord(PRIVATE float* u, PRIVATE float* v, PRIVATE uint8_t* face_idx, enum envmap_type em_type, PRIVATE const float* vec);
 /* Notice: faceSize should not be equal to one! */
 float envmap_warp_fixup_factor(float face_size);
 /* U and V should be center adressing and in [-1.0+invSize..1.0-invSize] range */
-void envmap_texel_coord_to_vec(float* out3f, enum envmap_type em_type, float u, float v, uint8_t face_id);
-void envmap_texel_coord_to_vec_warp(float* out3f, enum envmap_type em_type, float u, float v, uint8_t face_id, float warp_fixup);
+void envmap_texel_coord_to_vec(PRIVATE float* out3f, enum envmap_type em_type, float u, float v, uint8_t face_id);
+void envmap_texel_coord_to_vec_warp(PRIVATE float* out3f, enum envmap_type em_type, float u, float v, uint8_t face_id, float warp_fixup);
 /* Sampling function */
-void envmap_sample(float col[3], struct envmap* em, float vec[3]);
+void envmap_sample(PRIVATE float col[3], PRIVATE struct envmap* em, PRIVATE float vec[3]);
 /* Set pixel in envmap */
-void envmap_setpixel(struct envmap* em, uint32_t x, uint32_t y, enum cubemap_face face, float val[3]);
+void envmap_setpixel(PRIVATE struct envmap* em, uint32_t x, uint32_t y, enum cubemap_face face, PRIVATE float val[3]);
 
 #endif /* ! _ENVMAP_H_ */

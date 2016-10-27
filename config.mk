@@ -1,3 +1,3 @@
 PRJTYPE = StaticLib
-RESDIR  := res
-ADDINCS := $(BUILDDIR)/$(RESDIR)
+SRCDIR  := src
+ADDINCS := $(BUILDDIR)/$(VARIANT)/$(SRCDIR)

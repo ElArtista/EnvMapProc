@@ -1,7 +1,16 @@
 #include <emproc/envmap.h>
+#ifndef OPENCL_MODE
 #include <stdlib.h>
 #include <math.h>
 #include <assert.h>
+#define GLOBAL_CONSTANT const
+#else
+#define fabsf fabs
+#define fmaxf fmax
+#define sqrtf sqrt
+#define assert(x)
+#define GLOBAL_CONSTANT __constant
+#endif
 
 /*======================================================================
  * Environment map type detection
@@ -45,7 +54,11 @@ enum envmap_type envmap_detect_type(int width, int height)
  * Sampling helpers
  *======================================================================*/
 /* 3D dot product */
+#ifndef OPENCL_MODE
 static float vec3_dot(const float a[3], const float b[3]) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+#else
+#define vec3_dot(x, y) dot(vload3(0, x), vload3(0, y))
+#endif
 
 /*======================================================================
  * Cubemap helpers
@@ -65,7 +78,7 @@ static float vec3_dot(const float a[3], const float b[3]) { return a[0] * b[0] +
  *  Neighbour faces in order: left, right, top, bottom.
  *  FaceEdge is the edge that belongs to the neighbour face.
  */
-uint8_t cm_face_neighbours[6][4][2] =
+GLOBAL_CONSTANT uint8_t cm_face_neighbours[6][4][2] =
 {
     { /* POS_X */
         { CM_FACE_POS_Z, CM_EDGE_RIGHT },
@@ -123,7 +136,7 @@ uint8_t cm_face_neighbours[6][4][2] =
  *              |-z      3 |
  *              +----------+
  */
-static const float cm_face_uv_vectors[6][3][3] =
+static GLOBAL_CONSTANT float cm_face_uv_vectors[6][3][3] =
 {
     { /* +x face */
         {  0.0f,  0.0f, -1.0f }, /* u -> -z */
@@ -158,7 +171,7 @@ static const float cm_face_uv_vectors[6][3][3] =
 };
 
 /* u and v are in [0.0 .. 1.0] range. */
-static void cm_vec_to_texel_coord(float* u, float* v, uint8_t* face_idx, const float* vec)
+static void cm_vec_to_texel_coord(PRIVATE float* u, PRIVATE float* v, PRIVATE uint8_t* face_idx, PRIVATE const float* vec)
 {
     const float abs_vec[3] = {
         fabsf(vec[0]),
@@ -188,7 +201,7 @@ static void cm_vec_to_texel_coord(float* u, float* v, uint8_t* face_idx, const f
 }
 
 /* u and v should be center adressing and in [-1.0+invSize..1.0-invSize] range */
-static void cm_texel_coord_to_vec(float* out3f, float u, float v, uint8_t face_id)
+static void cm_texel_coord_to_vec(PRIVATE float* out3f, float u, float v, uint8_t face_id)
 {
     /* out = u * face_uv[0] + v * face_uv[1] + face_uv[2]. */
     out3f[0] = cm_face_uv_vectors[face_id][0][0] * u + cm_face_uv_vectors[face_id][1][0] * v + cm_face_uv_vectors[face_id][2][0];
@@ -206,7 +219,7 @@ static void cm_texel_coord_to_vec(float* out3f, float u, float v, uint8_t face_i
  * Cross sampling
  *======================================================================*/
 /* Offset in faces from top left of a cross image */
-static int hcross_face_map[6][2] = {
+static GLOBAL_CONSTANT int hcross_face_map[6][2] = {
     {2, 1}, /* Pos X */
     {0, 1}, /* Neg X */
     {1, 0}, /* Pos Y */
@@ -222,7 +235,7 @@ static size_t hcross_face_offset(int face, size_t face_size)
     return hcross_face_map[face][1] * face_size * stride + hcross_face_map[face][0] * face_size;
 }
 
-static void sample_hcross_map(float col[3], uint8_t* base, int face_size, int channels, float vec[3])
+static void sample_hcross_map(float col[3], PRIVATE uint8_t* base, int face_size, int channels, PRIVATE const float vec[3])
 {
     float u, v;
     uint8_t face_idx;
@@ -251,7 +264,7 @@ static void hcross_setpixel(uint8_t* base, uint32_t face_size, uint8_t channels,
  * Public interface
  *======================================================================*/
 /* u and v are in [0.0 .. 1.0] range. */
-void envmap_vec_to_texel_coord(float* u, float* v, uint8_t* face_idx, enum envmap_type em_type, const float* vec)
+void envmap_vec_to_texel_coord(PRIVATE float* u, PRIVATE float* v, PRIVATE uint8_t* face_idx, enum envmap_type em_type, PRIVATE const float* vec)
 {
     switch(em_type) {
         case EM_TYPE_HCROSS:
@@ -265,7 +278,7 @@ void envmap_vec_to_texel_coord(float* u, float* v, uint8_t* face_idx, enum envma
 }
 
 /* u and v should be center adressing and in [-1.0+invSize..1.0-invSize] range */
-void envmap_texel_coord_to_vec(float* out3f, enum envmap_type em_type, float u, float v, uint8_t face_id)
+void envmap_texel_coord_to_vec(PRIVATE float* out3f, enum envmap_type em_type, float u, float v, uint8_t face_id)
 {
     switch(em_type) {
         case EM_TYPE_HCROSS:
@@ -293,14 +306,14 @@ float envmap_warp_fixup_factor(float face_size)
 }
 
 /* u and v should be center adressing and in [-1.0+invSize..1.0-invSize] range. */
-void envmap_texel_coord_to_vec_warp(float* out3f, enum envmap_type em_type, float u, float v, uint8_t face_id, float warp_fixup)
+void envmap_texel_coord_to_vec_warp(PRIVATE float* out3f, enum envmap_type em_type, float u, float v, uint8_t face_id, float warp_fixup)
 {
     u = (warp_fixup * u*u*u) + u;
     v = (warp_fixup * v*v*v) + v;
     envmap_texel_coord_to_vec(out3f, em_type, u, v, face_id);
 }
 
-void envmap_sample(float col[3], struct envmap* em, float vec[3])
+void envmap_sample(PRIVATE float col[3], struct envmap* em, PRIVATE float vec[3])
 {
     switch(em->type) {
         case EM_TYPE_HCROSS:
@@ -312,7 +325,7 @@ void envmap_sample(float col[3], struct envmap* em, float vec[3])
     }
 }
 
-void envmap_setpixel(struct envmap* em, uint32_t x, uint32_t y, enum cubemap_face face, float val[3])
+void envmap_setpixel(PRIVATE struct envmap* em, uint32_t x, uint32_t y, enum cubemap_face face, PRIVATE float val[3])
 {
     switch(em->type) {
         case EM_TYPE_HCROSS:

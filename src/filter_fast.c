@@ -81,8 +81,8 @@ void irradiance_filter_fast(int width, int height, int channels, unsigned char* 
     }
 
     /* Create program */
-    const char* cl_src = (const char*) res_gpufilter_cl;
-    const size_t cl_src_len = res_gpufilter_cl_len;
+    const char* cl_src = (const char*) gpufilter_pp;
+    const size_t cl_src_len = gpufilter_pp_len;
     cl_program prog = clCreateProgramWithSource(ctx, 1, &cl_src, &cl_src_len, &err);
     cl_check_error(err, "Creating program");
     err = clBuildProgram(prog, 0, 0, 0, 0, 0);
