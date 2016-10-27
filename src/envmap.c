@@ -44,6 +44,12 @@ enum envmap_type envmap_detect_type(int width, int height)
 /*======================================================================
  * Sampling helpers
  *======================================================================*/
+/* 3D dot product */
+static float vec3_dot(const float a[3], const float b[3]) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+
+/*======================================================================
+ * Cubemap helpers
+ *======================================================================*/
 /*
  *     --> U    _____
  *    |        |     |
@@ -59,7 +65,7 @@ enum envmap_type envmap_detect_type(int width, int height)
  *  Neighbour faces in order: left, right, top, bottom.
  *  FaceEdge is the edge that belongs to the neighbour face.
  */
-uint8_t cube_face_neighbours[6][4][2] =
+uint8_t cm_face_neighbours[6][4][2] =
 {
     { /* POS_X */
         { CM_FACE_POS_Z, CM_EDGE_RIGHT },
@@ -99,11 +105,6 @@ uint8_t cube_face_neighbours[6][4][2] =
     }
 };
 
-static float vec3_dot(const float a[3], const float b[3]) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
-
-/*======================================================================
- * Cross sampling
- *======================================================================*/
 /*
  *              +----------+
  *              | +---->+x |
@@ -122,7 +123,7 @@ static float vec3_dot(const float a[3], const float b[3]) { return a[0] * b[0] +
  *              |-z      3 |
  *              +----------+
  */
-static const float hcross_face_uv_vectors[6][3][3] =
+static const float cm_face_uv_vectors[6][3][3] =
 {
     { /* +x face */
         {  0.0f,  0.0f, -1.0f }, /* u -> -z */
@@ -156,25 +157,8 @@ static const float hcross_face_uv_vectors[6][3][3] =
     }
 };
 
-/* Offset in faces from top left of a cross image */
-static int hcross_face_map[6][2] = {
-    {2, 1}, /* Pos X */
-    {0, 1}, /* Neg X */
-    {1, 0}, /* Pos Y */
-    {1, 2}, /* Neg Y */
-    {1, 1}, /* Pos Z */
-    {3, 1}  /* Neg Z */
-};
-
-/* In pixels */
-static size_t hcross_face_offset(int face, size_t face_size)
-{
-    size_t stride = 4 * face_size;
-    return hcross_face_map[face][1] * face_size * stride + hcross_face_map[face][0] * face_size;
-}
-
 /* u and v are in [0.0 .. 1.0] range. */
-static void hcross_vec_to_texel_coord(float* u, float* v, uint8_t* face_idx, const float* vec)
+static void cm_vec_to_texel_coord(float* u, float* v, uint8_t* face_idx, const float* vec)
 {
     const float abs_vec[3] = {
         fabsf(vec[0]),
@@ -199,17 +183,17 @@ static void hcross_vec_to_texel_coord(float* u, float* v, uint8_t* face_idx, con
     face_vec[2] = vec[2] * (1.0f / max);
 
     /* Project other two components to face uv basis. */
-    *u = (vec3_dot(hcross_face_uv_vectors[*face_idx][0], face_vec) + 1.0f) * 0.5f;
-    *v = (vec3_dot(hcross_face_uv_vectors[*face_idx][1], face_vec) + 1.0f) * 0.5f;
+    *u = (vec3_dot(cm_face_uv_vectors[*face_idx][0], face_vec) + 1.0f) * 0.5f;
+    *v = (vec3_dot(cm_face_uv_vectors[*face_idx][1], face_vec) + 1.0f) * 0.5f;
 }
 
 /* u and v should be center adressing and in [-1.0+invSize..1.0-invSize] range */
-static void hcross_texel_coord_to_vec(float* out3f, float u, float v, uint8_t face_id)
+static void cm_texel_coord_to_vec(float* out3f, float u, float v, uint8_t face_id)
 {
     /* out = u * face_uv[0] + v * face_uv[1] + face_uv[2]. */
-    out3f[0] = hcross_face_uv_vectors[face_id][0][0] * u + hcross_face_uv_vectors[face_id][1][0] * v + hcross_face_uv_vectors[face_id][2][0];
-    out3f[1] = hcross_face_uv_vectors[face_id][0][1] * u + hcross_face_uv_vectors[face_id][1][1] * v + hcross_face_uv_vectors[face_id][2][1];
-    out3f[2] = hcross_face_uv_vectors[face_id][0][2] * u + hcross_face_uv_vectors[face_id][1][2] * v + hcross_face_uv_vectors[face_id][2][2];
+    out3f[0] = cm_face_uv_vectors[face_id][0][0] * u + cm_face_uv_vectors[face_id][1][0] * v + cm_face_uv_vectors[face_id][2][0];
+    out3f[1] = cm_face_uv_vectors[face_id][0][1] * u + cm_face_uv_vectors[face_id][1][1] * v + cm_face_uv_vectors[face_id][2][1];
+    out3f[2] = cm_face_uv_vectors[face_id][0][2] * u + cm_face_uv_vectors[face_id][1][2] * v + cm_face_uv_vectors[face_id][2][2];
 
     /* Normalize. */
     const float inv_len = 1.0f / sqrtf(out3f[0] * out3f[0] + out3f[1] * out3f[1] + out3f[2] * out3f[2]);
@@ -218,11 +202,31 @@ static void hcross_texel_coord_to_vec(float* out3f, float u, float v, uint8_t fa
     out3f[2] *= inv_len;
 }
 
+/*======================================================================
+ * Cross sampling
+ *======================================================================*/
+/* Offset in faces from top left of a cross image */
+static int hcross_face_map[6][2] = {
+    {2, 1}, /* Pos X */
+    {0, 1}, /* Neg X */
+    {1, 0}, /* Pos Y */
+    {1, 2}, /* Neg Y */
+    {1, 1}, /* Pos Z */
+    {3, 1}  /* Neg Z */
+};
+
+/* In pixels */
+static size_t hcross_face_offset(int face, size_t face_size)
+{
+    size_t stride = 4 * face_size;
+    return hcross_face_map[face][1] * face_size * stride + hcross_face_map[face][0] * face_size;
+}
+
 static void sample_hcross_map(float col[3], uint8_t* base, int face_size, int channels, float vec[3])
 {
     float u, v;
     uint8_t face_idx;
-    hcross_vec_to_texel_coord(&u, &v, &face_idx, vec);
+    cm_vec_to_texel_coord(&u, &v, &face_idx, vec);
 
     int x = u * (face_size - 1);
     int y = v * (face_size - 1);
@@ -251,7 +255,8 @@ void envmap_vec_to_texel_coord(float* u, float* v, uint8_t* face_idx, enum envma
 {
     switch(em_type) {
         case EM_TYPE_HCROSS:
-            hcross_vec_to_texel_coord(u, v, face_idx, vec);
+        case EM_TYPE_VCROSS:
+            cm_vec_to_texel_coord(u, v, face_idx, vec);
             break;
         default:
             assert(0 && "Not implemented");
@@ -264,7 +269,8 @@ void envmap_texel_coord_to_vec(float* out3f, enum envmap_type em_type, float u, 
 {
     switch(em_type) {
         case EM_TYPE_HCROSS:
-            hcross_texel_coord_to_vec(out3f, u, v, face_id);
+        case EM_TYPE_VCROSS:
+            cm_texel_coord_to_vec(out3f, u, v, face_id);
             break;
         default:
             assert(0 && "Not implemented");
