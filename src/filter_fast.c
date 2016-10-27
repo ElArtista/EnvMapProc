@@ -2,14 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "cl_helper.h"
-
-static const char* sample_prog_src = CLSRC(
-    __kernel void fooo(__global float* a, __global float* b, __global float* c)
-    {
-        int i = get_global_id(0);
-        c[i] = a[i] + b[i];
-    }
-);
+#include "gpufilter.h"
 
 static int cl_choose_platform_and_device(cl_platform_id* plat_id, cl_device_id* dev_id)
 {
@@ -88,7 +81,9 @@ void irradiance_filter_fast(int width, int height, int channels, unsigned char* 
     }
 
     /* Create program */
-    cl_program prog = clCreateProgramWithSource(ctx, 1, &sample_prog_src, 0, &err);
+    const char* cl_src = (const char*) res_gpufilter_cl;
+    const size_t cl_src_len = res_gpufilter_cl_len;
+    cl_program prog = clCreateProgramWithSource(ctx, 1, &cl_src, &cl_src_len, &err);
     cl_check_error(err, "Creating program");
     err = clBuildProgram(prog, 0, 0, 0, 0, 0);
     /* Check for build errors */

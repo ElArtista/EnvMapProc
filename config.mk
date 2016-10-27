@@ -1,1 +1,3 @@
 PRJTYPE = StaticLib
+RESDIR  := res
+ADDINCS := $(BUILDDIR)/$(RESDIR)
