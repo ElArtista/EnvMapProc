@@ -5,6 +5,8 @@
 #include <string.h>
 #include <math.h>
 
+static float vec3_dot(const float a[3], const float b[3]) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+
 void irradiance_filter(int width, int height, int channels, unsigned char* src_base, unsigned char* dst_base)
 {
     /* Fill in input envmap struct */
@@ -42,22 +44,26 @@ void irradiance_filter(int width, int height, int channels, unsigned char* src_b
                 /* Full convolution */
                 float total_weight = 0;
                 float tot[3] = {0.0f, 0.0f, 0.0f};
-                float step = pi_half / 8.0f;
-                float bound = pi_half / 2.0f;
-                for (float k = -bound; k < bound; k += step) {
-                    /* Current angle values */
-                    float ctheta = theta + k;
-                    float cphi = phi + 0;
-                    /* */
-                    float cdir[3];
-                    sc_to_vec(cdir, ctheta, cphi);
-                    /* Sample for color in the given direction and add it to the sum */
-                    float col[3];
-                    envmap_sample(col, &em_in, cdir);
-                    tot[0] += col[0];
-                    tot[1] += col[1];
-                    tot[2] += col[2];
-                    ++total_weight;
+                float step = pi_half / 16.0f;
+                float bound = pi_half;
+                for (float k = -bound; k <= bound; k += step) {
+                    for (float l = -bound; l <= bound; l += step) {
+                        /* Current angle values */
+                        float ctheta = theta + k;
+                        float cphi = phi + l;
+                        /* Get 3D vector from angles */
+                        float cdir[3];
+                        sc_to_vec(cdir, ctheta, cphi);
+                        /* Get dot product between normal and current direction */
+                        float c = fabsf(vec3_dot(dir, cdir));
+                        /* Sample for color in the given direction and add it to the sum */
+                        float col[3];
+                        envmap_sample(col, &em_in, cdir);
+                        tot[0] += c * col[0];
+                        tot[1] += c * col[1];
+                        tot[2] += c * col[2];
+                        total_weight += c;
+                    }
                 }
                 /* Divide by the total of samples */
                 float dst[3];
