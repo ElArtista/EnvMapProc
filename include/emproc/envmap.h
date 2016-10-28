@@ -34,10 +34,12 @@
 #ifndef OPENCL_MODE
 #include <stdint.h>
 #define PRIVATE
+#define GLOBAL
 #else
 typedef unsigned char uint8_t;
 typedef unsigned int uint32_t;
 #define PRIVATE __private
+#define GLOBAL __global
 #endif
 
 enum envmap_type {
@@ -55,7 +57,7 @@ struct envmap {
     /* Number of color channels */
     uint8_t channels;
     /* Raw image data */
-    uint8_t* data;
+    GLOBAL uint8_t* data;
 };
 
 enum cubemap_face

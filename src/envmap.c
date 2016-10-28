@@ -235,7 +235,7 @@ static size_t hcross_face_offset(int face, size_t face_size)
     return hcross_face_map[face][1] * face_size * stride + hcross_face_map[face][0] * face_size;
 }
 
-static void sample_hcross_map(float col[3], PRIVATE uint8_t* base, int face_size, int channels, PRIVATE const float vec[3])
+static void sample_hcross_map(float col[3], GLOBAL uint8_t* base, int face_size, int channels, PRIVATE const float vec[3])
 {
     float u, v;
     uint8_t face_idx;
@@ -245,16 +245,16 @@ static void sample_hcross_map(float col[3], PRIVATE uint8_t* base, int face_size
     int y = v * (face_size - 1);
     size_t stride = 4 * face_size;
     size_t offset = (hcross_face_offset(face_idx, face_size) + y * stride + x) * channels;
-    uint8_t* data = base + offset;
+    GLOBAL uint8_t* data = base + offset;
     col[0] = data[0] / 255.0f;
     col[1] = data[1] / 255.0f;
     col[2] = data[2] / 255.0f;
 }
 
-static void hcross_setpixel(uint8_t* base, uint32_t face_size, uint8_t channels, uint32_t x, uint32_t y, enum cubemap_face face, float val[3])
+static void hcross_setpixel(GLOBAL uint8_t* base, uint32_t face_size, uint8_t channels, uint32_t x, uint32_t y, enum cubemap_face face, float val[3])
 {
     size_t stride = 4 * face_size;
-    uint8_t* dst = base + (hcross_face_offset(face, face_size) + y * stride + x) * channels;
+    GLOBAL uint8_t* dst = base + (hcross_face_offset(face, face_size) + y * stride + x) * channels;
     dst[0] = val[0];
     dst[1] = val[1];
     dst[2] = val[2];
