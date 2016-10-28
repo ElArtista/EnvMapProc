@@ -8,6 +8,10 @@
 #define fabsf fabs
 #define fmaxf fmax
 #define sqrtf sqrt
+#define cosf cos
+#define sinf sin
+#define acosf acos
+#define atan2f atan2
 #define assert(x)
 #define GLOBAL_CONSTANT __constant
 #endif
@@ -335,4 +339,42 @@ void envmap_setpixel(PRIVATE struct envmap* em, uint32_t x, uint32_t y, enum cub
             assert(0 && "Not implemented");
             break;
     }
+}
+
+/* Theta is horizontal, and phi is vertical angles */
+void sc_to_vec(PRIVATE float vec[3], float theta, float phi)
+{
+    vec[0] = sinf(theta) * sinf(phi);
+    vec[1] = cosf(phi);
+    vec[2] = cosf(theta) * sinf(phi);
+}
+
+void vec_to_sc(PRIVATE float* theta, PRIVATE float* phi, PRIVATE const float vec[3])
+{
+    *theta = atan2f(vec[0], vec[2]);
+    *phi = acosf(vec[1]);
+}
+
+/* http://www.mpia-hd.mpg.de/~mathar/public/mathar20051002.pdf */
+/* http://www.rorydriscoll.com/2012/01/15/cubemap-texel-solid-angle/ */
+static float area_element(float x, float y)
+{
+    return atan2f(x * y, sqrtf(x * x + y * y + 1.0f));
+}
+
+/* u and v should be center adressing and in [-1.0+invSize..1.0-invSize] range. */
+float texel_solid_angle(float u, float v, float inv_face_size)
+{
+    /* Specify texel area. */
+    const float x0 = u - inv_face_size;
+    const float x1 = u + inv_face_size;
+    const float y0 = v - inv_face_size;
+    const float y1 = v + inv_face_size;
+
+    /* Compute solid angle of texel area. */
+    const float solid_angle = area_element(x1, y1)
+                            - area_element(x0, y1)
+                            - area_element(x1, y0)
+                            + area_element(x0, y0);
+    return solid_angle;
 }

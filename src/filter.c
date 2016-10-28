@@ -5,51 +5,6 @@
 #include <string.h>
 #include <math.h>
 
-/* Piz */
-#define pi          3.14159265358979323846f
-#define two_pi      6.28318530717958647692f
-#define pi_half     1.57079632679489661923f
-#define inv_pi      0.31830988618379067153f
-#define inv_pi_half 0.15915494309189533576f
-
-/* Theta is horizontal, and phi is vertical angles */
-static void sc_to_vec(float vec[3], float theta, float phi)
-{
-    vec[0] = sinf(theta) * sinf(phi);
-    vec[1] = cosf(phi);
-    vec[2] = cosf(theta) * sinf(phi);
-}
-
-static void vec_to_sc(float* theta, float* phi, const float vec[3])
-{
-    *theta = atan2f(vec[0], vec[2]);
-    *phi = acosf(vec[1]);
-}
-
-/* http://www.mpia-hd.mpg.de/~mathar/public/mathar20051002.pdf */
-/* http://www.rorydriscoll.com/2012/01/15/cubemap-texel-solid-angle/ */
-static float area_element(float x, float y)
-{
-    return atan2f(x * y, sqrtf(x * x + y * y + 1.0f));
-}
-
-/* u and v should be center adressing and in [-1.0+invSize..1.0-invSize] range. */
-static float texel_solid_angle(float u, float v, float inv_face_size)
-{
-    /* Specify texel area. */
-    const float x0 = u - inv_face_size;
-    const float x1 = u + inv_face_size;
-    const float y0 = v - inv_face_size;
-    const float y1 = v + inv_face_size;
-
-    /* Compute solid angle of texel area. */
-    const float solid_angle = area_element(x1, y1)
-                            - area_element(x0, y1)
-                            - area_element(x1, y0)
-                            + area_element(x0, y0);
-    return solid_angle;
-}
-
 void irradiance_filter(int width, int height, int channels, unsigned char* src_base, unsigned char* dst_base)
 {
     /* Fill in input envmap struct */

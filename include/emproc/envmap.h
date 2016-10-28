@@ -78,6 +78,9 @@ enum cubemap_edge
     CM_EDGE_BOTTOM = 3,
 };
 
+/*
+ * Environment map utils
+ */
 /* Detect an envmap type from its dimensions */
 enum envmap_type envmap_detect_type(int width, int height);
 /* U and V are in [0.0 .. 1.0] range. */
@@ -91,5 +94,20 @@ void envmap_texel_coord_to_vec_warp(PRIVATE float* out3f, enum envmap_type em_ty
 void envmap_sample(PRIVATE float col[3], PRIVATE struct envmap* em, PRIVATE float vec[3]);
 /* Set pixel in envmap */
 void envmap_setpixel(PRIVATE struct envmap* em, uint32_t x, uint32_t y, enum cubemap_face face, PRIVATE float val[3]);
+
+/*
+ * Math utils
+ */
+/* Piz */
+#define pi          3.14159265358979323846f
+#define two_pi      6.28318530717958647692f
+#define pi_half     1.57079632679489661923f
+#define inv_pi      0.31830988618379067153f
+#define inv_pi_half 0.15915494309189533576f
+/* Spherical coordinates <-> 3D vector conversion */
+void sc_to_vec(PRIVATE float vec[3], float theta, float phi);
+void vec_to_sc(PRIVATE float* theta, PRIVATE float* phi, PRIVATE const float vec[3]);
+/* U and V should be center adressing and in [-1.0+invSize..1.0-invSize] range. */
+float texel_solid_angle(float u, float v, float inv_face_size);
 
 #endif /* ! _ENVMAP_H_ */
