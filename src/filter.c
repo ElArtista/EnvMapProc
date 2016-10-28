@@ -15,8 +15,7 @@ void irradiance_filter(int width, int height, int channels, unsigned char* src_b
     em_in.height = height;
     em_in.type = EM_TYPE_HCROSS;
     /* Fill in output envmap struct */
-    struct envmap em_out;
-    memcpy(&em_out, &em_in, sizeof(struct envmap));
+    struct envmap em_out = em_in;
     em_out.data = dst_base;
 
     int src_face_size = width / 4;
@@ -42,8 +41,7 @@ void irradiance_filter(int width, int height, int channels, unsigned char* src_b
 
                 /* Full convolution */
                 float total_weight = 0;
-                float tot[3];
-                memset(tot, 0, sizeof(float) * 3);
+                float tot[3] = {0.0f, 0.0f, 0.0f};
                 float step = pi_half / 8.0f;
                 float bound = pi_half / 2.0f;
                 for (float k = -bound; k < bound; k += step) {
