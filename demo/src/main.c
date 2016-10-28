@@ -133,6 +133,8 @@ struct context {
     struct image* in;
     struct image* out;
     int processing;
+    GLuint preview_shdr;
+    GLuint preview_tex;
 };
 
 static void on_key(struct window* wnd, int key, int scancode, int action, int mods)
@@ -194,6 +196,34 @@ static void init(struct context* ctx)
             pix[2] = i * j * 255 / (w * h);
         }
     }
+
+    /* Create GPU preview texture */
+    GLuint tex;
+    glGenTextures(1, &tex);
+
+    /* Create and setup preview shader */
+    GLuint sh = build_preview_shader();
+    glUseProgram(sh);
+    glUniform1i(glGetUniformLocation(sh, "tex"), 0);
+    glUniform2i(glGetUniformLocation(sh, "gScreenSize"), 800, 600);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, tex);
+
+    ctx->preview_shdr = sh;
+    ctx->preview_tex = tex;
+}
+
+static void update_preview_texture(struct image* img, GLuint tex)
+{
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage2D(
+        GL_TEXTURE_2D, 0,
+        img->channels == 4 ? GL_RGBA : GL_RGB,
+        img->width, img->height, 0,
+        img->channels == 4 ? GL_RGBA : GL_RGB,
+        GL_UNSIGNED_BYTE, img->data);
 }
 
 static void update(void* userdata, float dt)
@@ -209,42 +239,15 @@ static void render(void* userdata, float interpolation)
     (void) interpolation;
     struct context* ctx = userdata;
 
-    if (!ctx->processing)
-        return;
-
     glClearColor(0.0f, 0.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    /* Create texture in GPU */
-    struct image* img = ctx->out;
-    GLuint tex;
-    glGenTextures(1, &tex);
-    glBindTexture(GL_TEXTURE_2D, tex);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(
-        GL_TEXTURE_2D, 0,
-        img->channels == 4 ? GL_RGBA : GL_RGB,
-        img->width, img->height, 0,
-        img->channels == 4 ? GL_RGBA : GL_RGB,
-        GL_UNSIGNED_BYTE, img->data);
-
-    /* Create and setup preview shader */
-    GLuint sh = build_preview_shader();
-    glUseProgram(sh);
-    glUniform1i(glGetUniformLocation(sh, "tex"), 0);
-    glUniform2i(glGetUniformLocation(sh, "gScreenSize"), 800, 600);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, tex);
+    /* Update texture in GPU */
+    if (ctx->processing)
+        update_preview_texture(ctx->out, ctx->preview_tex);
 
     /* Render quad */
     render_quad();
-
-    /* Free GPU resources */
-    glUseProgram(0);
-    glDeleteProgram(sh);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glDeleteTextures(1, &tex);
 
     /* Show rendered contents from the backbuffer */
     window_swap_buffers(ctx->wnd);
@@ -252,6 +255,13 @@ static void render(void* userdata, float interpolation)
 
 static void shutdown(struct context* ctx)
 {
+    /* Free GPU resources */
+    glUseProgram(0);
+    glDeleteProgram(ctx->preview_shdr);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glDeleteTextures(1, &ctx->preview_tex);
+
+    /* Free memory bitmaps */
     image_delete(ctx->out);
     image_delete(ctx->in);
 
