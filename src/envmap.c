@@ -259,9 +259,9 @@ static void hcross_setpixel(GLOBAL uint8_t* base, uint32_t face_size, uint8_t ch
 {
     size_t stride = 4 * face_size;
     GLOBAL uint8_t* dst = base + (hcross_face_offset(face, face_size) + y * stride + x) * channels;
-    dst[0] = val[0];
-    dst[1] = val[1];
-    dst[2] = val[2];
+    dst[0] = val[0] * 255.0f;
+    dst[1] = val[1] * 255.0f;
+    dst[2] = val[2] * 255.0f;
 }
 
 /*======================================================================

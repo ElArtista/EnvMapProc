@@ -63,9 +63,9 @@ void irradiance_filter(int width, int height, int channels, unsigned char* src_b
                 }
                 /* Divide by the total of samples */
                 float dst[3];
-                dst[0] = 255.0f * tot[0] / total_weight;
-                dst[1] = 255.0f * tot[1] / total_weight;
-                dst[2] = 255.0f * tot[2] / total_weight;
+                dst[0] = tot[0] / total_weight;
+                dst[1] = tot[1] / total_weight;
+                dst[2] = tot[2] / total_weight;
                 envmap_setpixel(&em_out, xdst, ydst, face, dst);
             }
         }
