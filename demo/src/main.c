@@ -31,6 +31,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 #include <assets/assetload.h>
 #include <glad/glad.h>
 #include <tinycthread.h>
@@ -147,6 +148,8 @@ static void on_key(struct window* wnd, int key, int scancode, int action, int mo
 
 static int filter_thrd(void* arg)
 {
+    time_t start, end;
+    time(&start);
     struct context* ctx = (struct context*) arg;
     ctx->processing = 1;
 #ifdef USE_FAST_FILTER
@@ -155,6 +158,9 @@ static int filter_thrd(void* arg)
     irradiance_filter(ctx->out->width, ctx->out->height, ctx->out->channels, ctx->in->data, ctx->out->data);
 #endif
     ctx->processing = 0;
+    time(&end);
+    unsigned long long msecs = 1000 * difftime(end, start);
+    printf("Processing time: %llu:%llu:%llu\n", (msecs / 1000) / 60, (msecs / 1000) % 60, msecs % 1000);
     return 0;
 }
 
