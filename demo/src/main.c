@@ -39,6 +39,8 @@
 #include "window.h"
 #include <emproc/filter.h>
 
+#define USE_FAST_FILTER
+
 /* Convinience macro */
 #define GLSL(src) "#version 330 core\n" #src
 
@@ -134,6 +136,7 @@ struct context {
     struct image* in;
     struct image* out;
     int preview_dirty;
+    cnd_t sig_prev_updated;
     GLuint preview_shdr;
     GLuint preview_tex;
 };
@@ -150,6 +153,13 @@ static void filter_progress(void* userdata)
 {
     struct context* ctx = userdata;
     ctx->preview_dirty = 1;
+#ifdef USE_FAST_FILTER
+    /* Wait for OpenGL texture upload */
+    mtx_t wait_mtx;
+    mtx_init(&wait_mtx, mtx_plain);
+    cnd_wait(&ctx->sig_prev_updated, &wait_mtx);
+    mtx_destroy(&wait_mtx);
+#endif
 }
 
 static int filter_thrd(void* arg)
@@ -206,6 +216,7 @@ static void init(struct context* ctx)
 
     /* Force initial upload */
     ctx->preview_dirty = 1;
+    cnd_init(&ctx->sig_prev_updated);
 
     /* Load input image */
     ctx->in = image_from_file("ext/stormydays_large.jpg");
@@ -272,6 +283,9 @@ static void render(void* userdata, float interpolation)
     if (ctx->preview_dirty) {
         ctx->preview_dirty = 0;
         update_preview_texture(ctx->out, ctx->preview_tex);
+#ifdef USE_FAST_FILTER
+        cnd_signal(&ctx->sig_prev_updated);
+#endif
     }
 
     /* Render quad */
@@ -292,6 +306,9 @@ static void shutdown(struct context* ctx)
     /* Free memory bitmaps */
     image_delete(ctx->out);
     image_delete(ctx->in);
+
+    /* Destroy texture update signal cond var */
+    cnd_destroy(&ctx->sig_prev_updated);
 
     /* Destroy window */
     window_destroy(ctx->wnd);

@@ -1,6 +1,7 @@
 #include <emproc/filter.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include "cl_helper.h"
 #include "gpufilter.h"
 
@@ -53,11 +54,9 @@ static int cl_choose_platform_and_device(cl_platform_id* plat_id, cl_device_id* 
 
 void irradiance_filter_fast(int width, int height, int channels, unsigned char* in, unsigned char* out, filter_progress_fn progress_fn, void* userdata)
 {
-    (void)width;
-    (void)height;
-    (void)channels;
-    (void)in;
-    (void)out;
+    /* Sizes */
+    uint8_t bytes_per_channel = sizeof(unsigned char);
+    size_t data_sz = bytes_per_channel * channels * width * height;
 
     /* Platform and device ids used to create the context */
     cl_int err;
@@ -101,60 +100,38 @@ void irradiance_filter_fast(int width, int height, int channels, unsigned char* 
     cl_command_queue cmd_queue = clCreateCommandQueue(ctx, ctx_did, cmd_queue_props, &err);
     cl_check_error(err, "Creating Command Queue");
 
-    /* Fill 2 random vectors with data */
-    const int vsz = 100;
-    int* hv1 = malloc(sizeof(int) * vsz);
-    int* hv2 = malloc(sizeof(int) * vsz);
-    for (int i = 0; i < vsz; ++i) {
-        hv1[i] = rand() / RAND_MAX;
-        hv2[i] = rand() / RAND_MAX;
-    }
-    /* Allocate result vector */
-    int* hres = malloc(sizeof(int) * vsz);
-
-    /* Create input arrays in device memory */
-    cl_mem dv1 = clCreateBuffer(ctx, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(int) * vsz, hv1, &err);
-    cl_mem dv2 = clCreateBuffer(ctx, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(int) * vsz, hv2, &err);
-
-    /* Create output array in device memory */
-    cl_mem dres = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY, sizeof(int) * vsz, 0, &err);
+    /* Create input and output array in device memory */
+    cl_mem in_dev_mem = clCreateBuffer(ctx, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, data_sz, in, &err);
+    cl_mem out_dev_mem = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR, data_sz, out, &err);
 
     /* Enqueue kernel */
-    err  = clSetKernelArg(kernel, 0, sizeof(cl_mem), &dv1);
-    err |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &dv2);
-    err |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &dres);
+    int face_size = width / 4;
+    err  = clSetKernelArg(kernel, 0, sizeof(cl_mem), &out_dev_mem);
+    err |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &in_dev_mem);
+    err |= clSetKernelArg(kernel, 2, sizeof(unsigned int), &face_size);
     cl_check_error(err, "Setting kernel arguments");
 
-    /* Execute the kernel over the entire range of our 1d input data set
-       letting the OpenCL runtime choose the work-group size */
-    size_t global = vsz;
-    err = clEnqueueNDRangeKernel(cmd_queue, kernel, 1, 0, &global, 0, 0, 0, 0);
-    cl_check_error(err, "Enqueueing kernel 1st time");
-
-    /* Read back the result from the compute device */
-    err = clEnqueueReadBuffer(cmd_queue, dres, CL_TRUE, 0, sizeof(int) * vsz, hres, 0, 0, 0);
-    cl_check_error(err, "Reading back result");
-
-    /* Test results */
-    int correct = 0;
-    for (int i = 0; i < vsz; ++i) {
-        int tmp = hv1[i] + hv2[i];
-        if (tmp == hres[i])
-            ++correct;
+    for (unsigned int i = 0; i < 6; ++i) {
+        /* Set face id argument */
+        err |= clSetKernelArg(kernel, 3, sizeof(unsigned int), &i);
+        /* Execute the kernel over the entire range of our 2D input data set
+           letting the OpenCL runtime choose the work-group size */
+        size_t work_size[2] = {face_size, face_size};
+        err = clEnqueueNDRangeKernel(cmd_queue, kernel, 2, 0, work_size, 0, 0, 0, 0);
+        cl_check_error(err, "Enqueueing kernel");
+        /* Read back the result from the compute device */
+        err = clEnqueueReadBuffer(cmd_queue, out_dev_mem, CL_TRUE, 0, data_sz, out, 0, 0, 0);
+        cl_check_error(err, "Reading back result");
+        /* Wait for current face to finish */
+        clFinish(cmd_queue);
+        /* If progress fn given call it */
+        if (progress_fn)
+            progress_fn(userdata);
     }
 
-    /* Results */
-    printf("C = A + B: %d out of %d results were correct.\n", correct, vsz);
-
     /* Free device resources */
-    clReleaseMemObject(dres);
-    clReleaseMemObject(dv2);
-    clReleaseMemObject(dv1);
-
-    /* Free host resources */
-    free(hres);
-    free(hv2);
-    free(hv1);
+    clReleaseMemObject(out_dev_mem);
+    clReleaseMemObject(in_dev_mem);
 
     /* Release OpenCL objects */
     clReleaseCommandQueue(cmd_queue);
