@@ -7,7 +7,7 @@
 
 static float vec3_dot(const float a[3], const float b[3]) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
 
-void irradiance_filter(int width, int height, int channels, unsigned char* src_base, unsigned char* dst_base)
+void irradiance_filter(int width, int height, int channels, unsigned char* src_base, unsigned char* dst_base, filter_progress_fn progress_fn, void* userdata)
 {
     /* Fill in input envmap struct */
     struct envmap em_in;
@@ -71,6 +71,10 @@ void irradiance_filter(int width, int height, int channels, unsigned char* src_b
                 dst[1] = tot[1] / total_weight;
                 dst[2] = tot[2] / total_weight;
                 envmap_setpixel(&em_out, xdst, ydst, face, dst);
+
+                /* If progress function given call it */
+                if (progress_fn)
+                    progress_fn(userdata);
             }
         }
     }

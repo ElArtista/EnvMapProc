@@ -133,7 +133,7 @@ struct context {
     struct window* wnd;
     struct image* in;
     struct image* out;
-    int processing;
+    int preview_dirty;
     GLuint preview_shdr;
     GLuint preview_tex;
 };
@@ -146,18 +146,38 @@ static void on_key(struct window* wnd, int key, int scancode, int action, int mo
         *(ctx->should_terminate) = 1;
 }
 
+static void filter_progress(void* userdata)
+{
+    struct context* ctx = userdata;
+    ctx->preview_dirty = 1;
+}
+
 static int filter_thrd(void* arg)
 {
     time_t start, end;
     time(&start);
     struct context* ctx = (struct context*) arg;
-    ctx->processing = 1;
 #ifdef USE_FAST_FILTER
-    irradiance_filter_fast(ctx->out->width, ctx->out->height, ctx->out->channels, ctx->in->data, ctx->out->data);
+    irradiance_filter_fast(
+        ctx->out->width,
+        ctx->out->height,
+        ctx->out->channels,
+        ctx->in->data,
+        ctx->out->data,
+        filter_progress,
+        ctx
+    );
 #else
-    irradiance_filter(ctx->out->width, ctx->out->height, ctx->out->channels, ctx->in->data, ctx->out->data);
+    irradiance_filter(
+        ctx->out->width,
+        ctx->out->height,
+        ctx->out->channels,
+        ctx->in->data,
+        ctx->out->data,
+        filter_progress,
+        ctx
+    );
 #endif
-    ctx->processing = 0;
     time(&end);
     unsigned long long msecs = 1000 * difftime(end, start);
     printf("Processing time: %llu:%llu:%llu\n", (msecs / 1000) / 60, (msecs / 1000) % 60, msecs % 1000);
@@ -184,8 +204,8 @@ static void init(struct context* ctx)
     if (glDebugMessageCallback)
         glDebugMessageCallback(gl_debug_proc, ctx);
 
-    /* Set current processing state to idle */
-    ctx->processing = 0;
+    /* Force initial upload */
+    ctx->preview_dirty = 1;
 
     /* Load input image */
     ctx->in = image_from_file("ext/stormydays_large.jpg");
@@ -249,8 +269,10 @@ static void render(void* userdata, float interpolation)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     /* Update texture in GPU */
-    if (ctx->processing)
+    if (ctx->preview_dirty) {
+        ctx->preview_dirty = 0;
         update_preview_texture(ctx->out, ctx->preview_tex);
+    }
 
     /* Render quad */
     render_quad();

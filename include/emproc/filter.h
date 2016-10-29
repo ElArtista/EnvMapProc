@@ -31,7 +31,9 @@
 #ifndef _FILTER_H_
 #define _FILTER_H_
 
-void irradiance_filter(int width, int height, int channels, unsigned char* in, unsigned char* out);
-void irradiance_filter_fast(int width, int height, int channels, unsigned char* in, unsigned char* out);
+typedef void(*filter_progress_fn)(void* userdata);
+
+void irradiance_filter(int width, int height, int channels, unsigned char* in, unsigned char* out, filter_progress_fn progress_fn, void* userdata);
+void irradiance_filter_fast(int width, int height, int channels, unsigned char* in, unsigned char* out, filter_progress_fn progress_fn, void* userdata);
 
 #endif /* ! _FILTER_H_ */

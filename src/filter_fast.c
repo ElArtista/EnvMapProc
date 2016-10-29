@@ -51,7 +51,7 @@ static int cl_choose_platform_and_device(cl_platform_id* plat_id, cl_device_id* 
     return found_id_pair;
 }
 
-void irradiance_filter_fast(int width, int height, int channels, unsigned char* in, unsigned char* out)
+void irradiance_filter_fast(int width, int height, int channels, unsigned char* in, unsigned char* out, filter_progress_fn progress_fn, void* userdata)
 {
     (void)width;
     (void)height;
