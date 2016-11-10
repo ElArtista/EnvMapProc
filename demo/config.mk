@@ -7,3 +7,4 @@ else
 endif
 MOREDEPS = ..
 ADDLIBDIR = ../deps/OpenCL/lib
+EXTDEPS = assetloader::dev gfxwnd::0.0.0dev

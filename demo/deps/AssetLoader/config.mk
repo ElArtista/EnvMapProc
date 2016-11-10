@@ -1,4 +1,0 @@
-PRJTYPE = StaticLib
-ifeq ($(OS), Windows_NT)
-	DEFINES += _CRT_SECURE_NO_WARNINGS _CRT_SECURE_NO_DEPRECATE
-endif
