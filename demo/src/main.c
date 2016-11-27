@@ -35,9 +35,9 @@
 #include <assets/assetload.h>
 #include <glad/glad.h>
 #include <tinycthread.h>
-#include "mainloop.h"
-#include "window.h"
+#include <gfxwnd/window.h>
 #include <emproc/filter.h>
+#include "mainloop.h"
 
 #define USE_FAST_FILTER
 
