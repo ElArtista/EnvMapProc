@@ -39,7 +39,7 @@
 #include <emproc/filter.h>
 #include "mainloop.h"
 
-#define USE_FAST_FILTER
+#define USE_FILTER_SH
 
 /* Convinience macro */
 #define GLSL(src) "#version 330 core\n" #src
@@ -153,7 +153,7 @@ static void filter_progress(void* userdata)
 {
     struct context* ctx = userdata;
     ctx->preview_dirty = 1;
-#ifdef USE_FAST_FILTER
+#ifdef USE_FILTER_GPU
     /* Wait for OpenGL texture upload */
     mtx_t wait_mtx;
     mtx_init(&wait_mtx, mtx_plain);
@@ -167,18 +167,13 @@ static int filter_thrd(void* arg)
     time_t start, end;
     time(&start);
     struct context* ctx = (struct context*) arg;
-#ifdef USE_FAST_FILTER
+#if defined(USE_FILTER_GPU)
     irradiance_filter_fast(
-        ctx->out->width,
-        ctx->out->height,
-        ctx->out->channels,
-        ctx->in->data,
-        ctx->out->data,
-        filter_progress,
-        ctx
-    );
+#elif defined(USE_FILTER_SH)
+    irradiance_filter_sh(
 #else
     irradiance_filter(
+#endif
         ctx->out->width,
         ctx->out->height,
         ctx->out->channels,
@@ -187,7 +182,6 @@ static int filter_thrd(void* arg)
         filter_progress,
         ctx
     );
-#endif
     time(&end);
     unsigned long long msecs = 1000 * difftime(end, start);
     printf("Processing time: %llu:%llu:%llu\n", (msecs / 1000) / 60, (msecs / 1000) % 60, msecs % 1000);

@@ -94,6 +94,8 @@ void envmap_texel_coord_to_vec_warp(PRIVATE float* out3f, enum envmap_type em_ty
 void envmap_sample(PRIVATE float col[3], PRIVATE struct envmap* em, PRIVATE float vec[3]);
 /* Set pixel in envmap */
 void envmap_setpixel(PRIVATE struct envmap* em, uint32_t x, uint32_t y, enum cubemap_face face, PRIVATE float val[3]);
+/* Get pixel ptr in envmap data */
+uint8_t* envmap_pixel_ptr(PRIVATE struct envmap* em, uint32_t x, uint32_t y, enum cubemap_face face);
 
 /*
  * Math utils

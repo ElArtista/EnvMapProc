@@ -239,6 +239,14 @@ static size_t hcross_face_offset(int face, size_t face_size)
     return hcross_face_map[face][1] * face_size * stride + hcross_face_map[face][0] * face_size;
 }
 
+static uint8_t* hcross_pixel_ptr(uint8_t* base, uint32_t x, uint32_t y, int face_size, enum cubemap_face face, int channels)
+{
+    size_t stride = 4 * face_size;
+    size_t offset = (hcross_face_offset(face, face_size) + y * stride + x) * channels;
+    GLOBAL uint8_t* data = base + offset;
+    return data;
+}
+
 static void sample_hcross_map(float col[3], GLOBAL uint8_t* base, int face_size, int channels, PRIVATE const float vec[3])
 {
     float u, v;
@@ -335,6 +343,17 @@ void envmap_setpixel(PRIVATE struct envmap* em, uint32_t x, uint32_t y, enum cub
         case EM_TYPE_HCROSS:
             hcross_setpixel(em->data, em->width / 4.0f, em->channels, x, y, face, val);
             break;
+        default:
+            assert(0 && "Not implemented");
+            break;
+    }
+}
+
+uint8_t* envmap_pixel_ptr(PRIVATE struct envmap* em, uint32_t x, uint32_t y, enum cubemap_face face)
+{
+    switch(em->type) {
+        case EM_TYPE_HCROSS:
+            return hcross_pixel_ptr(em->data, x, y, em->width / 4.0f, face, em->channels);
         default:
             assert(0 && "Not implemented");
             break;
