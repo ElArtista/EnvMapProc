@@ -24,23 +24,23 @@ void irradiance_filter(int width, int height, int channels, unsigned char* src_b
     struct envmap em_out = em_in;
     em_out.data = dst_base;
 
-    int src_face_size = width / 4;
-    int dst_face_size = src_face_size;
-    float texel_size = 1.0f / (float)src_face_size;
+    const size_t face_sz = width / 4;
+    const float texel_size = 1.0f / (float)face_sz;
+    const float warp = envmap_warp_fixup_factor(face_sz);
     for (int face = 0; face < 6; ++face) {
         /* Iterate through dest pixels */
-        for (int ydst = 0; ydst < dst_face_size; ++ydst) {
+        for (size_t ydst = 0; ydst < face_sz; ++ydst) {
             /* Map value to [-1, 1], offset by 0.5 to point to texel center */
             float v = 2.0f * ((ydst + 0.5f) * texel_size) - 1.0f;
-            for (int xdst = 0; xdst < dst_face_size; ++xdst) {
+            for (size_t xdst = 0; xdst < face_sz; ++xdst) {
                 /* Current destination pixel location */
                 /* Map value to [-1, 1], offset by 0.5 to point to texel center */
                 float u = 2.0f * ((xdst + 0.5f) * texel_size) - 1.0f;
-                //float solid_angle = texel_solid_angle(u, v, 1.0f / dst_face_size);
+                //float solid_angle = texel_solid_angle(u, v, texel_size);
 
                 /* Get sampling vector for the above u, v set */
                 float dir[3];
-                envmap_texel_coord_to_vec_warp(dir, em_in.type, u, v, face, envmap_warp_fixup_factor(dst_face_size));
+                envmap_texel_coord_to_vec_warp(dir, em_in.type, u, v, face, warp);
                 /* */
                 float theta, phi;
                 vec_to_sc(&theta, &phi, dir);
