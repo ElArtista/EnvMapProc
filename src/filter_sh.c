@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
+#include <stdio.h>
 
 #define PI      3.1415926535897932384626433832795028841971693993751058
 #define PI4     12.566370614359172953850573533118011536788677597500423
@@ -60,44 +62,66 @@ static void eval_sh_basis5(double* sh_basis, const float* dir)
     sh_basis[24] =  3.0 * sqrt(35.0 / (4.0 * PI64)) * (x4 - 6.0 * y2 * x2 + y4);
 }
 
-static void cubemap_sh_coeffs(double sh_coeffs[SH_COEFF_NUM][3], struct envmap* em)
+static void build_normal_solid_angle_index(void* mem, struct envmap* em)
 {
-    memset(sh_coeffs, 0, SH_COEFF_NUM * 3 * sizeof(double));
-    double weight_accum = 0.0;
-
-    int src_face_size = em->width / 4;
-    int dst_face_size = src_face_size;
-    float texel_size = 1.0f / (float)src_face_size;
+    const size_t face_sz = em->width / 4;
+    const float warp = envmap_warp_fixup_factor(face_sz);
+    const float texel_size = 1.0f / (float)face_sz;
+    float* dst_ptr = mem;
     for (int face = 0; face < 6; ++face) {
-        /* Iterate through dest pixels */
-        for (int ydst = 0; ydst < dst_face_size; ++ydst) {
-            /* Map value to [-1, 1], offset by 0.5 to point to texel center */
-            float v = 2.0f * ((ydst + 0.5f) * texel_size) - 1.0f;
-            for (int xdst = 0; xdst < dst_face_size; ++xdst) {
+        for (size_t ydst = 0; ydst < face_sz; ++ydst) {
+            for (size_t xdst = 0; xdst < face_sz; ++xdst) {
                 /* Current destination pixel location */
                 /* Map value to [-1, 1], offset by 0.5 to point to texel center */
-                float u = 2.0f * ((xdst + 0.5f) * texel_size) - 1.0f;
-                /* Get solid angle for u, v set */
-                float solid_angle = texel_solid_angle(u, v, 1.0f / dst_face_size);
+                const float v = 2.0f * ((ydst + 0.5f) * texel_size) - 1.0f;
+                const float u = 2.0f * ((xdst + 0.5f) * texel_size) - 1.0f;
                 /* Get sampling vector for the above u, v set */
-                float dir[3];
-                envmap_texel_coord_to_vec_warp(dir, em->type, u, v, face, envmap_warp_fixup_factor(dst_face_size));
-                /* */
+                envmap_texel_coord_to_vec_warp(dst_ptr, em->type, u, v, face, warp);
+                /* Get solid angle for u, v set */
+                dst_ptr[3] = texel_solid_angle(u, v, texel_size);
+                /* Advance */
+                dst_ptr += 4;
+            }
+        }
+    }
+}
+
+static float normal_solid_angle_index_sz(size_t face_sz)
+{
+    return face_sz /* width    */
+         * face_sz /* height   */
+         * 6       /* faces    */
+         * 4       /* channels */
+         * 4;      /* bytes per channel */
+}
+
+static void cubemap_sh_coeffs(double sh_coeffs[SH_COEFF_NUM][3], struct envmap* em, float* nsa_idx)
+{
+    const size_t face_sz = em->width / 4;
+    memset(sh_coeffs, 0, SH_COEFF_NUM * 3 * sizeof(double));
+
+    float* nsa_ptr = nsa_idx;
+    double weight_accum = 0.0;
+    for (int face = 0; face < 6; ++face) {
+        for (size_t ydst = 0; ydst < face_sz; ++ydst) {
+            for (size_t xdst = 0; xdst < face_sz; ++xdst) {
+                /* Current pixel values */
                 uint8_t* src_ptr = envmap_pixel_ptr(em, xdst, ydst, face);
                 const double rr = (double)src_ptr[0];
                 const double gg = (double)src_ptr[1];
                 const double bb = (double)src_ptr[2];
-
                 /* Calculate SH Basis */
                 double sh_basis[SH_COEFF_NUM];
-                eval_sh_basis5(sh_basis, dir);
-                const double weight = (double)solid_angle;
+                eval_sh_basis5(sh_basis, nsa_ptr);
+                const double weight = (double)nsa_ptr[3];
                 for (uint8_t ii = 0; ii < SH_COEFF_NUM; ++ii) {
                     sh_coeffs[ii][0] += rr * sh_basis[ii] * weight;
                     sh_coeffs[ii][1] += gg * sh_basis[ii] * weight;
                     sh_coeffs[ii][2] += bb * sh_basis[ii] * weight;
                 }
                 weight_accum += weight;
+                /* Forward index ptr */
+                nsa_ptr += 4;
             }
         }
     }
@@ -127,32 +151,29 @@ void irradiance_filter_sh(int width, int height, int channels, unsigned char* sr
     /* Fill in output envmap struct */
     struct envmap em_out = em_in;
     em_out.data = dst_base;
+    const size_t face_sz = width / 4;
+
+    /* Allocate and build normal/solid angle index */
+    float* nsa_idx = malloc(normal_solid_angle_index_sz(face_sz));
+    build_normal_solid_angle_index(nsa_idx, &em_in);
 
     /* Compute spherical harmonic coefficients. */
+    time_t start, end;
+    time(&start);
     double sh_rgb[SH_COEFF_NUM][3];
-    cubemap_sh_coeffs(sh_rgb, &em_in);
+    cubemap_sh_coeffs(sh_rgb, &em_in, nsa_idx);
+    time(&end);
+    unsigned long long msecs = 1000 * difftime(end, start);
+    printf("SH coef calculation time: %llu:%llu:%llu\n", (msecs / 1000) / 60, (msecs / 1000) % 60, msecs % 1000);
 
     /* Compute irradiance using sh data */
-    int src_face_size = width / 4;
-    int dst_face_size = src_face_size;
-    float texel_size = 1.0f / (float)src_face_size;
+    float* nsa_ptr = nsa_idx;
     for (int face = 0; face < 6; ++face) {
-        /* Iterate through dest pixels */
-        for (int ydst = 0; ydst < dst_face_size; ++ydst) {
-            /* Map value to [-1, 1], offset by 0.5 to point to texel center */
-            float v = 2.0f * ((ydst + 0.5f) * texel_size) - 1.0f;
-            for (int xdst = 0; xdst < dst_face_size; ++xdst) {
-                /* Current destination pixel location */
-                /* Map value to [-1, 1], offset by 0.5 to point to texel center */
-                float u = 2.0f * ((xdst + 0.5f) * texel_size) - 1.0f;
-
-                /* Get sampling vector for the above u, v set */
-                float dir[3];
-                envmap_texel_coord_to_vec_warp(dir, em_in.type, u, v, face, envmap_warp_fixup_factor(dst_face_size));
-
+        for (size_t ydst = 0; ydst < face_sz; ++ydst) {
+            for (size_t xdst = 0; xdst < face_sz; ++xdst) {
                 /* Eval basis for current direction */
                 double sh_basis[SH_COEFF_NUM];
-                eval_sh_basis5(sh_basis, dir);
+                eval_sh_basis5(sh_basis, nsa_ptr);
 
                 /* Calculate pixel value using sh */
                 double rgb[3] = {0.0f, 0.0f, 0.0f};
@@ -189,10 +210,13 @@ void irradiance_filter_sh(int width, int height, int channels, unsigned char* sr
                 float dst[3] = { (float)rgb[0] / 255.0f, (float)rgb[1] / 255.0f, (float)rgb[2] / 255.0f };
                 envmap_setpixel(&em_out, xdst, ydst, face, dst);
 
+                /* Advance index pointer */
+                nsa_ptr += 4;
                 /* If progress function given call it */
                 if (progress_fn)
                     progress_fn(userdata);
             }
         }
     }
+    free(nsa_idx);
 }
