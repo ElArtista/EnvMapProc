@@ -171,7 +171,7 @@ static int filter_thrd(void* arg)
     em_in.data = ctx->in->data;
     em_in.width = ctx->in->width;
     em_in.height = ctx->in->height;
-    em_in.type = EM_TYPE_HCROSS;
+    em_in.type = envmap_detect_type(em_in.width, em_in.height);
     /* Fill in output envmap struct */
     struct envmap em_out = em_in;
     em_out.data = ctx->out->data;
