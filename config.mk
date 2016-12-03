@@ -1,3 +1,7 @@
 PRJTYPE = StaticLib
 SRCDIR  := src
 ADDINCS := $(BUILDDIR)/$(VARIANT)/$(SRCDIR)
+DEFINES := WITH_OPENMP
+ifeq ($(TOOLCHAIN), GCC)
+	MCFLAGS := -fopenmp
+endif

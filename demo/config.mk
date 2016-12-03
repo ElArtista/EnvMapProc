@@ -5,6 +5,9 @@ ifeq ($(OS), Windows_NT)
 else
 	LIBS += GLU GL X11 Xcursor Xinerama Xrandr Xxf86vm Xi pthread m dl
 endif
+ifeq ($(TOOLCHAIN), GCC)
+	MLDFLAGS := -fopenmp
+endif
 MOREDEPS = ..
 ADDLIBDIR = ../deps/OpenCL/lib
 EXTDEPS = assetloader::dev gfxwnd::0.0.0dev

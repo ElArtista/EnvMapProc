@@ -63,11 +63,19 @@ void sh_coeffs(double sh_coeffs[SH_COEFF_NUM][3], struct envmap* em, float* nsa_
     const size_t face_sz = em->width / 4;
     memset(sh_coeffs, 0, SH_COEFF_NUM * 3 * sizeof(double));
 
+#ifndef WITH_OPENMP
     float* nsa_ptr = nsa_idx;
+#endif
     double weight_accum = 0.0;
     for (int face = 0; face < 6; ++face) {
+#ifdef WITH_OPENMP
+        #pragma omp parallel for
+#endif
         for (size_t ydst = 0; ydst < face_sz; ++ydst) {
             for (size_t xdst = 0; xdst < face_sz; ++xdst) {
+#ifdef WITH_OPENMP
+                float* nsa_ptr = nsa_idx + ((face * face_sz * face_sz) + ydst * face_sz + xdst) * 4;
+#endif
                 /* Current pixel values */
                 uint8_t* src_ptr = envmap_pixel_ptr(em, xdst, ydst, face);
                 const double rr = (double)src_ptr[0];
@@ -83,8 +91,10 @@ void sh_coeffs(double sh_coeffs[SH_COEFF_NUM][3], struct envmap* em, float* nsa_
                     sh_coeffs[ii][2] += bb * sh_basis[ii] * weight;
                 }
                 weight_accum += weight;
+#ifndef WITH_OPENMP
                 /* Forward index ptr */
                 nsa_ptr += 4;
+#endif
             }
         }
     }
