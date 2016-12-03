@@ -164,8 +164,19 @@ static void filter_progress(void* userdata)
 
 static int filter_thrd(void* arg)
 {
-    timepoint_t t1 = millisecs();
     struct context* ctx = (struct context*) arg;
+    /* Fill in input envmap struct */
+    struct envmap em_in;
+    em_in.channels = ctx->in->channels;
+    em_in.data = ctx->in->data;
+    em_in.width = ctx->in->width;
+    em_in.height = ctx->in->height;
+    em_in.type = EM_TYPE_HCROSS;
+    /* Fill in output envmap struct */
+    struct envmap em_out = em_in;
+    em_out.data = ctx->out->data;
+
+    timepoint_t t1 = millisecs();
 #if defined(USE_FILTER_GPU)
     irradiance_filter_fast(
 #elif defined(USE_FILTER_SH)
@@ -173,13 +184,7 @@ static int filter_thrd(void* arg)
 #else
     irradiance_filter(
 #endif
-        ctx->out->width,
-        ctx->out->height,
-        ctx->out->channels,
-        ctx->in->data,
-        ctx->out->data,
-        filter_progress,
-        ctx
+        &em_out, &em_in, filter_progress, ctx
     );
     timepoint_t t2 = millisecs();
     timepoint_t msecs = t2 - t1;

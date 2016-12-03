@@ -52,11 +52,11 @@ static int cl_choose_platform_and_device(cl_platform_id* plat_id, cl_device_id* 
     return found_id_pair;
 }
 
-void irradiance_filter_fast(int width, int height, int channels, unsigned char* in, unsigned char* out, filter_progress_fn progress_fn, void* userdata)
+void irradiance_filter_fast(struct envmap* em_out, struct envmap* em_in, filter_progress_fn progress_fn, void* userdata)
 {
     /* Sizes */
     uint8_t bytes_per_channel = sizeof(unsigned char);
-    size_t data_sz = bytes_per_channel * channels * width * height;
+    size_t data_sz = bytes_per_channel * em_in->channels * em_in->width * em_in->height;
 
     /* Platform and device ids used to create the context */
     cl_int err;
@@ -101,11 +101,11 @@ void irradiance_filter_fast(int width, int height, int channels, unsigned char* 
     cl_check_error(err, "Creating Command Queue");
 
     /* Create input and output array in device memory */
-    cl_mem in_dev_mem = clCreateBuffer(ctx, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, data_sz, in, &err);
-    cl_mem out_dev_mem = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR, data_sz, out, &err);
+    cl_mem in_dev_mem = clCreateBuffer(ctx, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, data_sz, em_in->data, &err);
+    cl_mem out_dev_mem = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR, data_sz, em_out->data, &err);
 
     /* Enqueue kernel */
-    int face_size = width / 4;
+    int face_size = em_in->width / 4;
     err  = clSetKernelArg(kernel, 0, sizeof(cl_mem), &out_dev_mem);
     err |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &in_dev_mem);
     err |= clSetKernelArg(kernel, 2, sizeof(unsigned int), &face_size);
@@ -120,7 +120,7 @@ void irradiance_filter_fast(int width, int height, int channels, unsigned char* 
         err = clEnqueueNDRangeKernel(cmd_queue, kernel, 2, 0, work_size, 0, 0, 0, 0);
         cl_check_error(err, "Enqueueing kernel");
         /* Read back the result from the compute device */
-        err = clEnqueueReadBuffer(cmd_queue, out_dev_mem, CL_TRUE, 0, data_sz, out, 0, 0, 0);
+        err = clEnqueueReadBuffer(cmd_queue, out_dev_mem, CL_TRUE, 0, data_sz, em_out->data, 0, 0, 0);
         cl_check_error(err, "Reading back result");
         /* Wait for current face to finish */
         clFinish(cmd_queue);

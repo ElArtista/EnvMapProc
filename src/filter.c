@@ -11,20 +11,9 @@
 
 static float vec3_dot(const float a[3], const float b[3]) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
 
-void irradiance_filter(int width, int height, int channels, unsigned char* src_base, unsigned char* dst_base, filter_progress_fn progress_fn, void* userdata)
+void irradiance_filter(struct envmap* em_out, struct envmap* em_in, filter_progress_fn progress_fn, void* userdata)
 {
-    /* Fill in input envmap struct */
-    struct envmap em_in;
-    em_in.channels = channels;
-    em_in.data = src_base;
-    em_in.width = width;
-    em_in.height = height;
-    em_in.type = EM_TYPE_HCROSS;
-    /* Fill in output envmap struct */
-    struct envmap em_out = em_in;
-    em_out.data = dst_base;
-
-    const size_t face_sz = width / 4;
+    const size_t face_sz = em_in->width / 4;
     const float texel_size = 1.0f / (float)face_sz;
     const float warp = envmap_warp_fixup_factor(face_sz);
     for (int face = 0; face < 6; ++face) {
@@ -40,7 +29,7 @@ void irradiance_filter(int width, int height, int channels, unsigned char* src_b
 
                 /* Get sampling vector for the above u, v set */
                 float dir[3];
-                envmap_texel_coord_to_vec_warp(dir, em_in.type, u, v, face, warp);
+                envmap_texel_coord_to_vec_warp(dir, em_in->type, u, v, face, warp);
                 /* */
                 float theta, phi;
                 vec_to_sc(&theta, &phi, dir);
@@ -62,7 +51,7 @@ void irradiance_filter(int width, int height, int channels, unsigned char* src_b
                         float c = fabsf(vec3_dot(dir, cdir));
                         /* Sample for color in the given direction and add it to the sum */
                         float col[3];
-                        envmap_sample(col, &em_in, cdir);
+                        envmap_sample(col, em_in, cdir);
                         tot[0] += c * col[0];
                         tot[1] += c * col[1];
                         tot[2] += c * col[2];
@@ -74,7 +63,7 @@ void irradiance_filter(int width, int height, int channels, unsigned char* src_b
                 dst[0] = tot[0] / total_weight;
                 dst[1] = tot[1] / total_weight;
                 dst[2] = tot[2] / total_weight;
-                envmap_setpixel(&em_out, xdst, ydst, face, dst);
+                envmap_setpixel(em_out, xdst, ydst, face, dst);
 
                 /* If progress function given call it */
                 if (progress_fn)
@@ -84,29 +73,19 @@ void irradiance_filter(int width, int height, int channels, unsigned char* src_b
     }
 }
 
-void irradiance_filter_sh(int width, int height, int channels, unsigned char* src_base, unsigned char* dst_base, filter_progress_fn progress_fn, void* userdata)
+void irradiance_filter_sh(struct envmap* em_out, struct envmap* em_in, filter_progress_fn progress_fn, void* userdata)
 {
-    /* Fill in input envmap struct */
-    struct envmap em_in;
-    em_in.channels = channels;
-    em_in.data = src_base;
-    em_in.width = width;
-    em_in.height = height;
-    em_in.type = EM_TYPE_HCROSS;
-    /* Fill in output envmap struct */
-    struct envmap em_out = em_in;
-    em_out.data = dst_base;
-    const size_t face_sz = width / 4;
+    const size_t face_sz = em_in->width / 4;
 
     /* Allocate and build normal/solid angle index */
     float* nsa_idx = malloc(normal_solid_angle_index_sz(face_sz));
-    normal_solid_angle_index_build(nsa_idx, &em_in);
+    normal_solid_angle_index_build(nsa_idx, em_in);
 
     /* Compute spherical harmonic coefficients. */
     time_t start, end;
     time(&start);
     double sh_rgb[SH_COEFF_NUM][3];
-    sh_coeffs(sh_rgb, &em_in, nsa_idx);
+    sh_coeffs(sh_rgb, em_in, nsa_idx);
     time(&end);
     unsigned long long msecs = 1000 * difftime(end, start);
     printf("SH coef calculation time: %llu:%llu:%llu\n", (msecs / 1000) / 60, (msecs / 1000) % 60, msecs % 1000);
@@ -118,7 +97,7 @@ void irradiance_filter_sh(int width, int height, int channels, unsigned char* sr
             for (size_t xdst = 0; xdst < face_sz; ++xdst) {
                 float dst[3];
                 sh_irradiance(dst, sh_rgb, nsa_ptr);
-                envmap_setpixel(&em_out, xdst, ydst, face, dst);
+                envmap_setpixel(em_out, xdst, ydst, face, dst);
                 /* Advance index pointer */
                 nsa_ptr += 4;
                 /* If progress function given call it */
