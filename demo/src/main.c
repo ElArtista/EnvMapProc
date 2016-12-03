@@ -276,7 +276,7 @@ static void render(void* userdata, float interpolation)
     if (ctx->preview_dirty) {
         ctx->preview_dirty = 0;
         update_preview_texture(ctx->out, ctx->preview_tex);
-#ifdef USE_FAST_FILTER
+#ifdef USE_FILTER_GPU
         cnd_signal(&ctx->sig_prev_updated);
 #endif
     }

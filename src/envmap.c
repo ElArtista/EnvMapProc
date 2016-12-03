@@ -239,7 +239,7 @@ static size_t hcross_face_offset(int face, size_t face_size)
     return hcross_face_map[face][1] * face_size * stride + hcross_face_map[face][0] * face_size;
 }
 
-static uint8_t* hcross_pixel_ptr(uint8_t* base, uint32_t x, uint32_t y, int face_size, enum cubemap_face face, int channels)
+static GLOBAL uint8_t* hcross_pixel_ptr(GLOBAL uint8_t* base, uint32_t x, uint32_t y, int face_size, enum cubemap_face face, int channels)
 {
     size_t stride = 4 * face_size;
     size_t offset = (hcross_face_offset(face, face_size) + y * stride + x) * channels;
@@ -349,7 +349,7 @@ void envmap_setpixel(PRIVATE struct envmap* em, uint32_t x, uint32_t y, enum cub
     }
 }
 
-uint8_t* envmap_pixel_ptr(PRIVATE struct envmap* em, uint32_t x, uint32_t y, enum cubemap_face face)
+GLOBAL uint8_t* envmap_pixel_ptr(PRIVATE struct envmap* em, uint32_t x, uint32_t y, enum cubemap_face face)
 {
     switch(em->type) {
         case EM_TYPE_HCROSS:
