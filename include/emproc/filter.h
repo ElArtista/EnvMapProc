@@ -36,7 +36,7 @@
 typedef void(*filter_progress_fn)(void* userdata);
 
 void irradiance_filter(struct envmap* em_out, struct envmap* em_in, filter_progress_fn progress_fn, void* userdata);
-void irradiance_filter_fast(struct envmap* em_out, struct envmap* em_in, filter_progress_fn progress_fn, void* userdata);
+void irradiance_filter_gpu(struct envmap* em_out, struct envmap* em_in, filter_progress_fn progress_fn, void* userdata);
 void irradiance_filter_sh(struct envmap* em_out, struct envmap* em_in, filter_progress_fn progress_fn, void* userdata);
 
 #endif /* ! _FILTER_H_ */

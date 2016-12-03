@@ -52,7 +52,7 @@ static int cl_choose_platform_and_device(cl_platform_id* plat_id, cl_device_id* 
     return found_id_pair;
 }
 
-void irradiance_filter_fast(struct envmap* em_out, struct envmap* em_in, filter_progress_fn progress_fn, void* userdata)
+void irradiance_filter_gpu(struct envmap* em_out, struct envmap* em_in, filter_progress_fn progress_fn, void* userdata)
 {
     /* Sizes */
     uint8_t bytes_per_channel = sizeof(unsigned char);

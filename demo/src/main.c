@@ -178,7 +178,7 @@ static int filter_thrd(void* arg)
 
     timepoint_t t1 = millisecs();
 #if defined(USE_FILTER_GPU)
-    irradiance_filter_fast(
+    irradiance_filter_gpu(
 #elif defined(USE_FILTER_SH)
     irradiance_filter_sh(
 #else
