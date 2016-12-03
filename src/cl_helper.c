@@ -123,6 +123,53 @@ void cl_print_prog_build_info_log(cl_program prog, cl_device_id did)
     free(buf);
 }
 
+int cl_choose_platform_and_device(cl_platform_id* plat_id, cl_device_id* dev_id)
+{
+    int found_id_pair = 0;
+    /* Query available platform id count */
+    cl_uint platform_id_cnt = 0;
+    clGetPlatformIDs(0, 0, &platform_id_cnt);
+    printf("Found %d platforms\n", platform_id_cnt);
+
+    /* Allocate buffer to hold platform ids and fill it */
+    cl_platform_id* platform_ids = calloc(platform_id_cnt, sizeof(cl_platform_id));
+    clGetPlatformIDs(platform_id_cnt, platform_ids, 0);
+
+    /* For each platform */
+    for (size_t i = 0; i < platform_id_cnt; ++i) {
+        cl_platform_id pid = platform_ids[i];
+        /* Query available devices id count */
+        cl_uint device_id_cnt = 0;
+        clGetDeviceIDs(pid, CL_DEVICE_TYPE_ALL, 0, 0, &device_id_cnt);
+        /* Show platform info */
+        char plat_buf[256];
+        clGetPlatformInfo(pid, CL_PLATFORM_VENDOR, sizeof(plat_buf), plat_buf, 0);
+        printf("Platform %s (%d devices)\n", plat_buf, device_id_cnt);
+        /* Allocate buffer to hold device ids and fill it */
+        cl_device_id* device_ids = calloc(device_id_cnt, sizeof(cl_device_id));
+        clGetDeviceIDs(pid, CL_DEVICE_TYPE_ALL, device_id_cnt, device_ids, 0);
+        /* For each device */
+        for (size_t j = 0; j < device_id_cnt; ++j) {
+            cl_device_id did = device_ids[j];
+            /* Get first pair */
+            if (!found_id_pair) {
+                *plat_id = pid;
+                *dev_id = did;
+                found_id_pair = 1;
+            }
+            /* Show device info */
+            char dev_name_buf[256];
+            clGetDeviceInfo(did, CL_DEVICE_NAME, sizeof(dev_name_buf), dev_name_buf, 0);
+            char dev_type_buf[256];
+            clGetDeviceInfo(did, CL_DEVICE_TYPE, sizeof(dev_type_buf), dev_type_buf, 0);
+            printf("  Device %s (Type: %s)\n", dev_name_buf, dev_type_buf);
+        }
+        free(device_ids);
+    }
+    free(platform_ids);
+    return found_id_pair;
+}
+
 void _cl_check_error(cl_int err, const char* operation, char* filename, int line)
 {
     if (err != CL_SUCCESS) {

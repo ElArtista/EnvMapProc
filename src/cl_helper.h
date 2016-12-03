@@ -57,6 +57,8 @@ enum cl_vendor {
 const char* cl_err_code(cl_int err_in);
 /* Prints given build info log for given program and device pair */
 void cl_print_prog_build_info_log(cl_program prog, cl_device_id did);
+/* Iterates through available platforms and devices and fills in with the first pair */
+int cl_choose_platform_and_device(cl_platform_id* plat_id, cl_device_id* dev_id);
 
 /* Function used by cl_check_error macro, not meant to be used directly */
 void _cl_check_error(cl_int err, const char* operation, char* filename, int line);
