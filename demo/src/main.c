@@ -31,13 +31,13 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <time.h>
 #include <assets/assetload.h>
 #include <glad/glad.h>
 #include <tinycthread.h>
 #include <gfxwnd/window.h>
 #include <emproc/filter.h>
 #include "mainloop.h"
+#include "prof.h"
 
 #define USE_FILTER_SH
 
@@ -164,8 +164,7 @@ static void filter_progress(void* userdata)
 
 static int filter_thrd(void* arg)
 {
-    time_t start, end;
-    time(&start);
+    timepoint_t t1 = millisecs();
     struct context* ctx = (struct context*) arg;
 #if defined(USE_FILTER_GPU)
     irradiance_filter_fast(
@@ -182,9 +181,9 @@ static int filter_thrd(void* arg)
         filter_progress,
         ctx
     );
-    time(&end);
-    unsigned long long msecs = 1000 * difftime(end, start);
-    printf("Processing time: %llu:%llu:%llu\n", (msecs / 1000) / 60, (msecs / 1000) % 60, msecs % 1000);
+    timepoint_t t2 = millisecs();
+    timepoint_t msecs = t2 - t1;
+    printf("Processing time: %lu:%lu:%lu\n", (msecs / 1000) / 60, (msecs / 1000) % 60, msecs % 1000);
     return 0;
 }
 
