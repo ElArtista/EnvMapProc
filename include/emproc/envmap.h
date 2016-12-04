@@ -91,6 +91,8 @@ float envmap_warp_fixup_factor(float face_size);
 /* U and V should be center adressing and in [-1.0+invSize..1.0-invSize] range */
 void envmap_texel_coord_to_vec(PRIVATE float* out3f, enum envmap_type em_type, float u, float v, uint8_t face_id);
 void envmap_texel_coord_to_vec_warp(PRIVATE float* out3f, enum envmap_type em_type, float u, float v, uint8_t face_id, float warp_fixup);
+/* Calculates face size in pixels using envmap type and dimensions */
+uint32_t envmap_face_size(struct envmap* em);
 /* Sampling function */
 void envmap_sample(PRIVATE float col[3], PRIVATE struct envmap* em, PRIVATE float vec[3]);
 /* Set pixel in envmap */

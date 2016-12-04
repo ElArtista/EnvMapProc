@@ -374,6 +374,21 @@ void envmap_texel_coord_to_vec_warp(PRIVATE float* out3f, enum envmap_type em_ty
     envmap_texel_coord_to_vec(out3f, em_type, u, v, face_id);
 }
 
+uint32_t envmap_face_size(struct envmap* em)
+{
+    switch(em->type) {
+        case EM_TYPE_HCROSS:
+            return em->width / 4.0f;
+        case EM_TYPE_VCROSS:
+            return em->width / 3.0f;
+        case EM_TYPE_VSTRIP:
+            return em->height / 6.0f;
+        default:
+            assert(0 && "Not implemented");
+            break;
+    }
+}
+
 void envmap_sample(PRIVATE float col[3], struct envmap* em, PRIVATE float vec[3])
 {
     switch(em->type) {

@@ -63,7 +63,7 @@ void sh_eval_basis5(double* sh_basis, GLOBAL const float* dir)
 #ifndef OPENCL_MODE
 void sh_coeffs(double sh_coeffs[SH_COEFF_NUM][3], struct envmap* em, float* nsa_idx)
 {
-    const size_t face_sz = em->width / 4;
+    const size_t face_sz = envmap_face_size(em);
     memset(sh_coeffs, 0, SH_COEFF_NUM * 3 * sizeof(double));
 
 #ifndef WITH_OPENMP
