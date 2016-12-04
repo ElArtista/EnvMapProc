@@ -12,6 +12,45 @@
 #define PI64    201.06192982974676726160917652988818458861884156000677
 #define SQRT_PI 1.7724538509055160272981674833411451827975494561223871
 
+/* 1.0 / (2.0 * SQRT_PI) */
+#define K0      0.28209479177
+/* sqrt(3.0 / PI4) */
+#define K1      0.4886025119
+/* sqrt(15.0 / PI4) */
+#define K2      1.09254843059
+/* -sqrt(15.0 / PI4) */
+#define K3     -1.09254843059
+/* sqrt(5.0 / PI16) */
+#define K4      0.31539156525
+/* sqrt(15.0 / PI16) */
+#define K5      0.54627421529
+/* -sqrt(70.0 / PI64) */
+#define K6     -0.59004358992
+/* sqrt(105.0 / PI4) */
+#define K7      2.89061144264
+/* -sqrt(21.0 / PI16) */
+#define K8     -0.64636036822
+/* sqrt(7.0 / PI16) */
+#define K9      0.37317633259
+/* -sqrt(42.0 / PI64) */
+#define K10    -0.45704579946
+/* sqrt(105.0 / PI16) */
+#define K11     1.44530572132
+/* -sqrt(70.0 / PI64) */
+#define K12    -0.59004358992
+/* 3.0 * sqrt(35.0 / PI16) */
+#define K13     2.5033429418
+/* -3.0 * sqrt(70.0 / PI64) */
+#define K14    -1.77013076978
+/* 3.0 * sqrt(5.0 / PI16) */
+#define K15     0.94617469575
+/* -3.0 * sqrt(10.0 / PI64) */
+#define K16    -1.33809308711
+/* 3.0 * sqrt(5.0 / PI64) */
+#define K17     0.47308734787
+/* 3.0 * sqrt(35.0 / (4.0 * PI64)) */
+#define K18     0.62583573544
+
 void sh_eval_basis5(double* sh_basis, GLOBAL const float* dir)
 {
     const double x = (double)dir[0];
@@ -29,35 +68,35 @@ void sh_eval_basis5(double* sh_basis, GLOBAL const float* dir)
     const double z4 = z*z*z*z;
 
     /* Equations based on data from: http://ppsloan.org/publications/stupid_sH36.pdf */
-    sh_basis[0]  =  1.0 / (2.0 * SQRT_PI);
+    sh_basis[0]  = K0;
 
-    sh_basis[1]  = -sqrt(3.0 / PI4) * y;
-    sh_basis[2]  =  sqrt(3.0 / PI4) * z;
-    sh_basis[3]  = -sqrt(3.0 / PI4) * x;
+    sh_basis[1]  = -K1 * y;
+    sh_basis[2]  = K1 * z;
+    sh_basis[3]  = -K1 * x;
 
-    sh_basis[4]  =  sqrt(15.0 /  PI4) * y * x;
-    sh_basis[5]  = -sqrt(15.0 /  PI4) * y * z;
-    sh_basis[6]  =  sqrt(5.0  / PI16) * (3.0 * z2 - 1.0);
-    sh_basis[7]  = -sqrt(15.0 /  PI4) * x * z;
-    sh_basis[8]  =  sqrt(15.0 / PI16) * (x2 - y2);
+    sh_basis[4]  = K2 * y * x;
+    sh_basis[5]  = K3 * y * z;
+    sh_basis[6]  = K4 * (3.0 * z2 - 1.0);
+    sh_basis[7]  = K3 * x * z;
+    sh_basis[8]  = K5 * (x2 - y2);
 
-    sh_basis[9]  = -sqrt( 70.0 / PI64) * y * (3 * x2 - y2);
-    sh_basis[10] =  sqrt(105.0 /  PI4) * y * x * z;
-    sh_basis[11] = -sqrt( 21.0 / PI16) * y * (-1.0 + 5.0 * z2);
-    sh_basis[12] =  sqrt(  7.0 / PI16) * (5.0 * z3 - 3.0 * z);
-    sh_basis[13] = -sqrt( 42.0 / PI64) * x * (-1.0 + 5.0 * z2);
-    sh_basis[14] =  sqrt(105.0 / PI16) * (x2 - y2) * z;
-    sh_basis[15] = -sqrt( 70.0 / PI64) * x * (x2 - 3.0 * y2);
+    sh_basis[9]  = K6 * y * (3 * x2 - y2);
+    sh_basis[10] = K7 * y * x * z;
+    sh_basis[11] = K8 * y * (-1.0 + 5.0 * z2);
+    sh_basis[12] = K9 * (5.0 * z3 - 3.0 * z);
+    sh_basis[13] = K10 * x * (-1.0 + 5.0 * z2);
+    sh_basis[14] = K11 * (x2 - y2) * z;
+    sh_basis[15] = K12 * x * (x2 - 3.0 * y2);
 
-    sh_basis[16] =  3.0 * sqrt(35.0 / PI16) * x * y * (x2 - y2);
-    sh_basis[17] = -3.0 * sqrt(70.0 / PI64) * y * z * (3.0 * x2 - y2);
-    sh_basis[18] =  3.0 * sqrt( 5.0 / PI16) * y * x * (-1.0 + 7.0 * z2);
-    sh_basis[19] = -3.0 * sqrt(10.0 / PI64) * y * z * (-3.0 + 7.0 * z2);
+    sh_basis[16] = K13 * x * y * (x2 - y2);
+    sh_basis[17] = K14 * y * z * (3.0 * x2 - y2);
+    sh_basis[18] = K15 * y * x * (-1.0 + 7.0 * z2);
+    sh_basis[19] = K16 * y * z * (-3.0 + 7.0 * z2);
     sh_basis[20] =  (105.0 * z4 -90.0 * z2 + 9.0) / (16.0 * SQRT_PI);
-    sh_basis[21] = -3.0 * sqrt(10.0 / PI64) * x * z * (-3.0 + 7.0 * z2);
-    sh_basis[22] =  3.0 * sqrt( 5.0 / PI64) * (x2 - y2) * (-1.0 + 7.0 * z2);
-    sh_basis[23] = -3.0 * sqrt(70.0 / PI64) * x * z * (x2 - 3.0 * y2);
-    sh_basis[24] =  3.0 * sqrt(35.0 / (4.0 * PI64)) * (x4 - 6.0 * y2 * x2 + y4);
+    sh_basis[21] = K16 * x * z * (-3.0 + 7.0 * z2);
+    sh_basis[22] = K17 * (x2 - y2) * (-1.0 + 7.0 * z2);
+    sh_basis[23] = K14 * x * z * (x2 - 3.0 * y2);
+    sh_basis[24] = K18 * (x4 - 6.0 * y2 * x2 + y4);
 }
 
 #ifndef OPENCL_MODE
