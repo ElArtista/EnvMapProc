@@ -77,17 +77,19 @@ void irradiance_filter_sh(struct envmap* em_out, struct envmap* em_in, filter_pr
 {
     const size_t face_sz = em_in->width / 4;
 
+    time_t start, end;
+    time(&start);
+
     /* Allocate and build normal/solid angle index */
     float* nsa_idx = malloc(normal_solid_angle_index_sz(face_sz));
     normal_solid_angle_index_build(nsa_idx, em_in);
 
     /* Compute spherical harmonic coefficients. */
-    time_t start, end;
-    time(&start);
     double sh_rgb[SH_COEFF_NUM][3];
     memset(sh_rgb, 0, sizeof(sh_rgb));
     sh_coeffs(sh_rgb, em_in, nsa_idx);
     //sh_coeffs_gpu(sh_rgb, em_in, nsa_idx);
+
     time(&end);
     unsigned long long msecs = 1000 * difftime(end, start);
     printf("SH coef calculation time: %llu:%llu:%llu\n", (msecs / 1000) / 60, (msecs / 1000) % 60, msecs % 1000);
