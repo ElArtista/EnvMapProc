@@ -22,11 +22,11 @@ void sh_eval_basis5(double* sh_basis, GLOBAL const float* dir)
     const double y2 = y*y;
     const double z2 = z*z;
 
-    const double z3 = pow(z, 3.0);
+    const double z3 = z*z*z;
 
-    const double x4 = pow(x, 4.0);
-    const double y4 = pow(y, 4.0);
-    const double z4 = pow(z, 4.0);
+    const double x4 = x*x*x*x;
+    const double y4 = y*y*y*y;
+    const double z4 = z*z*z*z;
 
     /* Equations based on data from: http://ppsloan.org/publications/stupid_sH36.pdf */
     sh_basis[0]  =  1.0 / (2.0 * SQRT_PI);
