@@ -82,7 +82,7 @@ void irradiance_filter_sh(struct envmap* em_out, struct envmap* em_in, filter_pr
 
     /* Allocate and build normal/solid angle index */
     float* nsa_idx = malloc(normal_solid_angle_index_sz(face_sz));
-    normal_solid_angle_index_build(nsa_idx, em_in);
+    normal_solid_angle_index_build(nsa_idx, face_sz, em_in->type);
 
     /* Compute spherical harmonic coefficients. */
     double sh_rgb[SH_COEFF_NUM][3];

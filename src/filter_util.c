@@ -1,8 +1,7 @@
 #include <emproc/filter_util.h>
 
-void normal_solid_angle_index_build(void* mem, struct envmap* em)
+void normal_solid_angle_index_build(void* mem, size_t face_sz, enum envmap_type em_type)
 {
-    const size_t face_sz = em->width / 4;
     const float warp = envmap_warp_fixup_factor(face_sz);
     const float texel_size = 1.0f / (float)face_sz;
     float* dst_ptr = mem;
@@ -14,7 +13,7 @@ void normal_solid_angle_index_build(void* mem, struct envmap* em)
                 const float v = 2.0f * ((ydst + 0.5f) * texel_size) - 1.0f;
                 const float u = 2.0f * ((xdst + 0.5f) * texel_size) - 1.0f;
                 /* Get sampling vector for the above u, v set */
-                envmap_texel_coord_to_vec_warp(dst_ptr, em->type, u, v, face, warp);
+                envmap_texel_coord_to_vec_warp(dst_ptr, em_type, u, v, face, warp);
                 /* Get solid angle for u, v set */
                 dst_ptr[3] = texel_solid_angle(u, v, texel_size);
                 /* Advance */

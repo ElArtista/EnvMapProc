@@ -35,6 +35,6 @@
 #include "envmap.h"
 
 float normal_solid_angle_index_sz(size_t face_sz);
-void  normal_solid_angle_index_build(void* mem, struct envmap* em);
+void  normal_solid_angle_index_build(void* mem, size_t face_sz, enum envmap_type em_type);
 
 #endif /* ! _FILTER_UTIL_H_ */
