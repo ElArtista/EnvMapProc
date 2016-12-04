@@ -46,6 +46,7 @@ enum envmap_type {
     EM_TYPE_HCROSS,
     EM_TYPE_VCROSS,
     EM_TYPE_LATLONG,
+    EM_TYPE_VSTRIP,
     EM_TYPE_UNKNOWN
 };
 

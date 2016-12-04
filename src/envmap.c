@@ -43,6 +43,12 @@ static int image_is_latlong(int width, int height)
     return fequalse(aspect, 2.0f, 10e-4);
 }
 
+static int image_is_vstrip(int width, int height)
+{
+    float aspect = (float)width / (float)height;
+    return fequalse(aspect, 1.0f / 6.0f, 10e-4);
+}
+
 enum envmap_type envmap_detect_type(int width, int height)
 {
     if (image_is_hcross(width, height))
@@ -51,6 +57,8 @@ enum envmap_type envmap_detect_type(int width, int height)
         return EM_TYPE_VCROSS;
     else if (image_is_latlong(width, height))
         return EM_TYPE_LATLONG;
+    else if (image_is_vstrip(width, height))
+        return EM_TYPE_VSTRIP;
     return EM_TYPE_UNKNOWN;
 }
 
@@ -273,6 +281,45 @@ static void hcross_setpixel(GLOBAL uint8_t* base, uint32_t face_size, uint8_t ch
 }
 
 /*======================================================================
+ * Strip sampling
+ *======================================================================*/
+/* In pixels */
+static size_t vstrip_face_offset(int face, size_t face_size)
+{
+    return face_size * face_size * face;
+}
+
+static GLOBAL uint8_t* vstrip_pixel_ptr(GLOBAL uint8_t* base, uint32_t x, uint32_t y, int face_size, enum cubemap_face face, int channels)
+{
+    size_t offset = (vstrip_face_offset(face, face_size) + y * face_size + x) * channels;
+    GLOBAL uint8_t* data = base + offset;
+    return data;
+}
+
+static void sample_vstrip_map(float col[3], GLOBAL uint8_t* base, int face_size, int channels, PRIVATE const float vec[3])
+{
+    float u, v;
+    uint8_t face_idx;
+    cm_vec_to_texel_coord(&u, &v, &face_idx, vec);
+
+    int x = u * (face_size - 1);
+    int y = v * (face_size - 1);
+    size_t offset = (vstrip_face_offset(face_idx, face_size) + y * face_size + x) * channels;
+    GLOBAL uint8_t* data = base + offset;
+    col[0] = data[0] / 255.0f;
+    col[1] = data[1] / 255.0f;
+    col[2] = data[2] / 255.0f;
+}
+
+static void vstrip_setpixel(GLOBAL uint8_t* base, uint32_t face_size, uint8_t channels, uint32_t x, uint32_t y, enum cubemap_face face, float val[3])
+{
+    GLOBAL uint8_t* dst = base + (vstrip_face_offset(face, face_size) + y * face_size + x) * channels;
+    dst[0] = val[0] * 255.0f;
+    dst[1] = val[1] * 255.0f;
+    dst[2] = val[2] * 255.0f;
+}
+
+/*======================================================================
  * Public interface
  *======================================================================*/
 /* u and v are in [0.0 .. 1.0] range. */
@@ -281,6 +328,7 @@ void envmap_vec_to_texel_coord(PRIVATE float* u, PRIVATE float* v, PRIVATE uint8
     switch(em_type) {
         case EM_TYPE_HCROSS:
         case EM_TYPE_VCROSS:
+        case EM_TYPE_VSTRIP:
             cm_vec_to_texel_coord(u, v, face_idx, vec);
             break;
         default:
@@ -295,6 +343,7 @@ void envmap_texel_coord_to_vec(PRIVATE float* out3f, enum envmap_type em_type, f
     switch(em_type) {
         case EM_TYPE_HCROSS:
         case EM_TYPE_VCROSS:
+        case EM_TYPE_VSTRIP:
             cm_texel_coord_to_vec(out3f, u, v, face_id);
             break;
         default:
@@ -331,6 +380,9 @@ void envmap_sample(PRIVATE float col[3], struct envmap* em, PRIVATE float vec[3]
         case EM_TYPE_HCROSS:
             sample_hcross_map(col, em->data, em->width / 4.0f, em->channels, vec);
             break;
+        case EM_TYPE_VSTRIP:
+            sample_vstrip_map(col, em->data, em->width / 4.0f, em->channels, vec);
+            break;
         default:
             assert(0 && "Not implemented");
             break;
@@ -343,6 +395,9 @@ void envmap_setpixel(PRIVATE struct envmap* em, uint32_t x, uint32_t y, enum cub
         case EM_TYPE_HCROSS:
             hcross_setpixel(em->data, em->width / 4.0f, em->channels, x, y, face, val);
             break;
+        case EM_TYPE_VSTRIP:
+            vstrip_setpixel(em->data, em->width / 4.0f, em->channels, x, y, face, val);
+            break;
         default:
             assert(0 && "Not implemented");
             break;
@@ -354,6 +409,8 @@ GLOBAL uint8_t* envmap_pixel_ptr(PRIVATE struct envmap* em, uint32_t x, uint32_t
     switch(em->type) {
         case EM_TYPE_HCROSS:
             return hcross_pixel_ptr(em->data, x, y, em->width / 4.0f, face, em->channels);
+        case EM_TYPE_VSTRIP:
+            return vstrip_pixel_ptr(em->data, x, y, em->width / 4.0f, face, em->channels);
         default:
             assert(0 && "Not implemented");
             break;
