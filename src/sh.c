@@ -81,9 +81,9 @@ void sh_coeffs(double sh_coeffs[SH_COEFF_NUM][3], struct envmap* em, float* nsa_
 #endif
                 /* Current pixel values */
                 uint8_t* src_ptr = envmap_pixel_ptr(em, xdst, ydst, face);
-                const double rr = (double)src_ptr[0];
-                const double gg = (double)src_ptr[1];
-                const double bb = (double)src_ptr[2];
+                const double rr = (double)src_ptr[0] / 255.0;
+                const double gg = (double)src_ptr[1] / 255.0;
+                const double bb = (double)src_ptr[2] / 255.0;
                 /* Calculate SH Basis */
                 double sh_basis[SH_COEFF_NUM];
                 sh_eval_basis5(sh_basis, nsa_ptr);
@@ -164,8 +164,8 @@ void sh_irradiance(float irr[3], double sh_rgb[SH_COEFF_NUM][3], float dir[3])
     }
 
     /* Store output */
-    irr[0] = (float)rgb[0] / 255.0f;
-    irr[1] = (float)rgb[1] / 255.0f;
-    irr[2] = (float)rgb[2] / 255.0f;
+    irr[0] = (float)rgb[0];
+    irr[1] = (float)rgb[1];
+    irr[2] = (float)rgb[2];
 }
 #endif

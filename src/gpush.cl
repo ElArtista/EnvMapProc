@@ -45,9 +45,9 @@ __kernel void booo(__global double* sh_coeffs,
 
     /* Current pixel values */
     __global uint8_t* src_ptr = envmap_pixel_ptr(&em, xdst, ydst, face);
-    const double rr = (double)src_ptr[0];
-    const double gg = (double)src_ptr[1];
-    const double bb = (double)src_ptr[2];
+    const double rr = (double)src_ptr[0] / 255.0;
+    const double gg = (double)src_ptr[1] / 255.0;
+    const double bb = (double)src_ptr[2] / 255.0;
 
     /* Calculate SH Basis */
     double sh_basis[SH_COEFF_NUM];
