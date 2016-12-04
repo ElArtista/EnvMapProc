@@ -1,8 +1,10 @@
 #include <emproc/sh.h>
+#ifndef OPENCL_MODE
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 #include <math.h>
+#endif
 
 #define PI      3.1415926535897932384626433832795028841971693993751058
 #define PI4     12.566370614359172953850573533118011536788677597500423
@@ -10,7 +12,7 @@
 #define PI64    201.06192982974676726160917652988818458861884156000677
 #define SQRT_PI 1.7724538509055160272981674833411451827975494561223871
 
-void sh_eval_basis5(double* sh_basis, const float* dir)
+void sh_eval_basis5(double* sh_basis, GLOBAL const float* dir)
 {
     const double x = (double)dir[0];
     const double y = (double)dir[1];
@@ -58,6 +60,7 @@ void sh_eval_basis5(double* sh_basis, const float* dir)
     sh_basis[24] =  3.0 * sqrt(35.0 / (4.0 * PI64)) * (x4 - 6.0 * y2 * x2 + y4);
 }
 
+#ifndef OPENCL_MODE
 void sh_coeffs(double sh_coeffs[SH_COEFF_NUM][3], struct envmap* em, float* nsa_idx)
 {
     const size_t face_sz = em->width / 4;
@@ -165,3 +168,4 @@ void sh_irradiance(float irr[3], double sh_rgb[SH_COEFF_NUM][3], float dir[3])
     irr[1] = (float)rgb[1] / 255.0f;
     irr[2] = (float)rgb[2] / 255.0f;
 }
+#endif

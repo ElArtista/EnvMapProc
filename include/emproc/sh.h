@@ -36,8 +36,9 @@
 
 #define SH_COEFF_NUM 25
 
-void sh_eval_basis5(double* sh_basis, const float* dir);
+void sh_eval_basis5(double* sh_basis, GLOBAL const float* dir);
 void sh_coeffs(double sh_coeffs[SH_COEFF_NUM][3], struct envmap* em, float* nsa_idx);
+void sh_coeffs_gpu(double sh_coeffs[SH_COEFF_NUM][3], struct envmap* em, float* nsa_idx);
 void sh_irradiance(float irr[3], double sh_rgb[SH_COEFF_NUM][3], float dir[3]);
 
 #endif /* ! _SH_H_ */
