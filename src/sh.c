@@ -86,8 +86,17 @@ void sh_coeffs(double sh_coeffs[SH_COEFF_NUM][3], struct envmap* em, float* nsa_
                 sh_eval_basis5(sh_basis, nsa_ptr);
                 const double weight = (double)nsa_ptr[3];
                 for (uint8_t ii = 0; ii < SH_COEFF_NUM; ++ii) {
+#ifdef WITH_OPENMP
+                    #pragma omp atomic update
+#endif
                     sh_coeffs[ii][0] += rr * sh_basis[ii] * weight;
+#ifdef WITH_OPENMP
+                    #pragma omp atomic update
+#endif
                     sh_coeffs[ii][1] += gg * sh_basis[ii] * weight;
+#ifdef WITH_OPENMP
+                    #pragma omp atomic update
+#endif
                     sh_coeffs[ii][2] += bb * sh_basis[ii] * weight;
                 }
                 weight_accum += weight;
