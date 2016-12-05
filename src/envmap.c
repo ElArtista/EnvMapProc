@@ -393,10 +393,10 @@ void envmap_sample(PRIVATE float col[3], struct envmap* em, PRIVATE float vec[3]
 {
     switch(em->type) {
         case EM_TYPE_HCROSS:
-            sample_hcross_map(col, em->data, em->width / 4.0f, em->channels, vec);
+            sample_hcross_map(col, em->data, envmap_face_size(em), em->channels, vec);
             break;
         case EM_TYPE_VSTRIP:
-            sample_vstrip_map(col, em->data, em->width / 4.0f, em->channels, vec);
+            sample_vstrip_map(col, em->data, envmap_face_size(em), em->channels, vec);
             break;
         default:
             assert(0 && "Not implemented");
@@ -408,10 +408,10 @@ void envmap_setpixel(PRIVATE struct envmap* em, uint32_t x, uint32_t y, enum cub
 {
     switch(em->type) {
         case EM_TYPE_HCROSS:
-            hcross_setpixel(em->data, em->width / 4.0f, em->channels, x, y, face, val);
+            hcross_setpixel(em->data, envmap_face_size(em), em->channels, x, y, face, val);
             break;
         case EM_TYPE_VSTRIP:
-            vstrip_setpixel(em->data, em->width / 4.0f, em->channels, x, y, face, val);
+            vstrip_setpixel(em->data, envmap_face_size(em), em->channels, x, y, face, val);
             break;
         default:
             assert(0 && "Not implemented");
@@ -423,9 +423,9 @@ GLOBAL uint8_t* envmap_pixel_ptr(PRIVATE struct envmap* em, uint32_t x, uint32_t
 {
     switch(em->type) {
         case EM_TYPE_HCROSS:
-            return hcross_pixel_ptr(em->data, x, y, em->width / 4.0f, face, em->channels);
+            return hcross_pixel_ptr(em->data, x, y, envmap_face_size(em), face, em->channels);
         case EM_TYPE_VSTRIP:
-            return vstrip_pixel_ptr(em->data, x, y, em->width / 4.0f, face, em->channels);
+            return vstrip_pixel_ptr(em->data, x, y, envmap_face_size(em), face, em->channels);
         default:
             assert(0 && "Not implemented");
             break;

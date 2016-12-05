@@ -13,7 +13,7 @@ static float vec3_dot(const float a[3], const float b[3]) { return a[0] * b[0] +
 
 void irradiance_filter(struct envmap* em_out, struct envmap* em_in, filter_progress_fn progress_fn, void* userdata)
 {
-    const size_t face_sz = em_in->width / 4;
+    const size_t face_sz = envmap_face_size(em_in);
     const float texel_size = 1.0f / (float)face_sz;
     const float warp = envmap_warp_fixup_factor(face_sz);
     for (int face = 0; face < 6; ++face) {
@@ -75,7 +75,7 @@ void irradiance_filter(struct envmap* em_out, struct envmap* em_in, filter_progr
 
 void irradiance_filter_sh(struct envmap* em_out, struct envmap* em_in, filter_progress_fn progress_fn, void* userdata)
 {
-    const size_t face_sz = em_in->width / 4;
+    const size_t face_sz = envmap_face_size(em_in);
 
     time_t start, end;
     time(&start);
