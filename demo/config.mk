@@ -10,4 +10,4 @@ ifeq ($(TOOLCHAIN), GCC)
 endif
 MOREDEPS = ..
 ADDLIBDIR = ../deps/OpenCL/lib
-EXTDEPS = assetloader::dev gfxwnd::0.0.0dev
+EXTDEPS = assetloader::dev gfxwnd::0.0.1dev
